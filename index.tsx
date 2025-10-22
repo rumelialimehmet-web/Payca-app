@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
+import { AuthProvider, useAuth } from './src/hooks/useAuth';
+import { useGroups } from './src/hooks/useGroups';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -81,6 +84,51 @@ const sampleReceipts = [
 ];
 
 // --- COMPONENTS ---
+function QRCodeModal({ groupId, groupName, onClose }) {
+    const groupLink = `${window.location.origin}/#/group/${groupId}`;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                <button className="modal-close-button" onClick={onClose}>&times;</button>
+                <h2>📱 QR Kod ile Katıl</h2>
+                <p style={{ marginBottom: '20px' }}>Bu QR kodu tarayarak gruba katılabilirsiniz</p>
+
+                <div style={{ background: 'white', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+                    <QRCodeSVG
+                        value={groupLink}
+                        size={256}
+                        level="H"
+                        includeMargin={true}
+                    />
+                </div>
+
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                    <strong>{groupName}</strong>
+                </p>
+
+                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button
+                        className="form-button"
+                        onClick={() => {
+                            navigator.clipboard.writeText(groupLink);
+                            alert('✅ Link kopyalandı!');
+                        }}
+                    >
+                        🔗 Linki Kopyala
+                    </button>
+                    <button
+                        className="secondary-button"
+                        onClick={onClose}
+                    >
+                        Kapat
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function InstallPwaPrompt({ onInstall, onDismiss, isIOS, hasInstallEvent }) {
     return (
         <div className="install-prompt-banner">
@@ -99,18 +147,21 @@ function InstallPwaPrompt({ onInstall, onDismiss, isIOS, hasInstallEvent }) {
 }
 
 function App() {
-    const [user, setUser] = useState(() => {
-        try {
-            const storedUser = localStorage.getItem('payca-user');
-            return storedUser ? JSON.parse(storedUser) : null;
-        } catch (error) {
-            console.error("Error parsing user from localStorage:", error);
-            localStorage.removeItem('payca-user');
-            return null;
-        }
-    });
-    const [currentView, setCurrentView] = useState('dashboard');
+    // Use Supabase Auth hook
+    const { user: supabaseUser, loading: authLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
+
+    // Adapt Supabase user to app's expected format
+    const user = useMemo(() => {
+        if (!supabaseUser) return null;
+        return {
+            id: supabaseUser.id,
+            name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0] || 'User',
+            email: supabaseUser.email || '',
+        };
+    }, [supabaseUser]);
+
     const [groups, setGroups] = useState([]);
+    const [currentView, setCurrentView] = useState('dashboard');
     const [selectedGroupId, setSelectedGroupId] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
@@ -129,26 +180,25 @@ function App() {
         localStorage.setItem('payca-theme', theme);
     }, [theme]);
 
+    // Load groups from localStorage when user logs in
     useEffect(() => {
         if (user) {
-            localStorage.setItem('payca-user', JSON.stringify(user));
-            let userGroups = initialGroups;
             try {
                 const storedGroups = localStorage.getItem(`payca-groups-${user.id}`);
-                userGroups = storedGroups ? JSON.parse(storedGroups) : initialGroups;
+                const userGroups = storedGroups ? JSON.parse(storedGroups) : initialGroups;
+                setGroups(userGroups);
             } catch (error) {
-                console.error("Error parsing groups from localStorage:", error);
-                localStorage.removeItem(`payca-groups-${user.id}`);
+                console.error("Error loading groups from localStorage:", error);
+                setGroups(initialGroups);
             }
-            setGroups(userGroups);
         } else {
-            localStorage.removeItem('payca-user');
             setGroups([]);
         }
     }, [user]);
 
+    // Save groups to localStorage when they change
     useEffect(() => {
-        if (user) {
+        if (user && groups.length > 0) {
             localStorage.setItem(`payca-groups-${user.id}`, JSON.stringify(groups));
         }
     }, [groups, user]);
@@ -175,22 +225,55 @@ function App() {
         return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     }, [isIOS, isStandalone]);
 
-    const handleLogin = (userData) => {
-        setUser(userData);
+    const handleLogin = async (email, password) => {
+        const { error } = await signIn(email, password);
+        if (error) {
+            console.error('Login error:', error);
+            setSuccessMessage('Giriş başarısız! Lütfen bilgilerinizi kontrol edin.');
+            return { error };
+        }
         setAuthModal({ isOpen: false, view: 'login' });
         // Show onboarding only on first login for this user
-        if (!localStorage.getItem(`payca-onboarding-complete-${userData.id}`)) {
+        if (user && !localStorage.getItem(`payca-onboarding-complete-${user.id}`)) {
             setShowOnboarding(true);
         }
+        return { error: null };
     };
 
-    const handleLogout = () => {
-        setUser(null);
+    const handleSignup = async (email, password, displayName) => {
+        const { error } = await signUp(email, password, displayName);
+        if (error) {
+            console.error('Signup error:', error);
+            setSuccessMessage('Kayıt başarısız! Lütfen tekrar deneyin.');
+            return { error };
+        }
+        setAuthModal({ isOpen: false, view: 'login' });
+        setSuccessMessage('Kayıt başarılı! Hoş geldiniz!');
+        return { error: null };
+    };
+
+    const handleGoogleLogin = async () => {
+        const { error } = await signInWithGoogle();
+        if (error) {
+            console.error('Google login error:', error);
+            setSuccessMessage('Google ile giriş başarısız!');
+            return { error };
+        }
+        setAuthModal({ isOpen: false, view: 'login' });
+        return { error: null };
+    };
+
+    const handleLogout = async () => {
+        const { error } = await signOut();
+        if (error) {
+            console.error('Logout error:', error);
+        }
         handleNavigate('dashboard');
     };
 
     const handleUpdateUser = (updatedUserData) => {
-        setUser(prevUser => ({ ...prevUser, ...updatedUserData }));
+        // Note: This will need to be updated to use Supabase profile update
+        // For now, just show success message
         setSuccessMessage("Profil başarıyla güncellendi!");
     }
 
@@ -261,11 +344,21 @@ function App() {
         [groups, selectedGroupId]
     );
 
+    // Show loading state while checking authentication
+    if (authLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
+                <div style={{ fontSize: '24px', marginBottom: '16px' }}>Yükleniyor...</div>
+                <div className="spinner"></div>
+            </div>
+        );
+    }
+
     if (!user) {
         return (
             <>
                 <LandingPage onShowAuth={(view) => setAuthModal({ isOpen: true, view })} />
-                {authModal.isOpen && <AuthModal view={authModal.view} onLogin={handleLogin} onClose={() => setAuthModal({ isOpen: false, view: 'login' })} />}
+                {authModal.isOpen && <AuthModal view={authModal.view} onLogin={handleLogin} onSignup={handleSignup} onGoogleLogin={handleGoogleLogin} onClose={() => setAuthModal({ isOpen: false, view: 'login' })} />}
                 <AppFooter />
             </>
         );
@@ -348,54 +441,64 @@ function LandingPage({ onShowAuth }) {
     );
 }
 
-function AuthModal({ view, onLogin, onClose }) {
+function AuthModal({ view, onLogin, onSignup, onGoogleLogin, onClose }) {
     const [currentView, setCurrentView] = useState(view);
     const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', terms: false });
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
-    const handleGmailAuth = () => {
-        // Simulate Gmail OAuth
-        onLogin({ id: 1, name: 'Ali Veli', email: 'ali.veli@gmail.com', phone: '5551234567' });
+    const handleGmailAuth = async () => {
+        setLoading(true);
+        setError('');
+        const { error } = await onGoogleLogin();
+        setLoading(false);
+        if (error) {
+            setError('Google ile giriş başarısız oldu. Lütfen tekrar deneyin.');
+        }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
 
         if (currentView === 'register') {
             if (!formData.name || !formData.email || !formData.password) {
                 setError("Lütfen tüm zorunlu alanları doldurun.");
+                setLoading(false);
                 return;
             }
             if (formData.password.length < 6) {
                 setError("Şifreniz en az 6 karakter olmalıdır.");
+                setLoading(false);
                 return;
             }
             if (!formData.terms) {
                 setError("Kullanım koşullarını kabul etmelisiniz.");
+                setLoading(false);
                 return;
             }
-            // Simulate successful registration
-            onLogin({
-                id: Date.now(),
-                name: formData.name,
-                email: formData.email,
-                phone: formData.phone
-            });
+            // Real Supabase signup
+            const { error } = await onSignup(formData.email, formData.password, formData.name);
+            setLoading(false);
+            if (error) {
+                setError(error.message || "Kayıt başarısız oldu. Lütfen tekrar deneyin.");
+            }
         } else { // Login
             if (!formData.email || !formData.password) {
                 setError("Lütfen email ve şifrenizi girin.");
+                setLoading(false);
                 return;
             }
-            // Simulate successful login with registered user or default user
-             if (formData.email === 'ali.veli@gmail.com' && formData.password === '123456') {
-                onLogin({ id: 1, name: 'Ali Veli', email: 'ali.veli@gmail.com', phone: '5551234567' });
-            } else {
+            // Real Supabase login
+            const { error } = await onLogin(formData.email, formData.password);
+            setLoading(false);
+            if (error) {
                 setError("Geçersiz e-posta veya şifre.");
             }
         }
@@ -442,8 +545,8 @@ function AuthModal({ view, onLogin, onClose }) {
                         </>
                     )}
                     {error && <p style={{color: 'var(--danger-color)', textAlign: 'center'}}>{error}</p>}
-                    <button type="submit" className="form-button" style={{width: '100%'}}>
-                        {currentView === 'register' ? 'Hesap Oluştur' : 'Giriş Yap'}
+                    <button type="submit" className="form-button" style={{width: '100%'}} disabled={loading}>
+                        {loading ? 'Yükleniyor...' : (currentView === 'register' ? 'Hesap Oluştur' : 'Giriş Yap')}
                     </button>
                 </form>
 
@@ -612,6 +715,7 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
     const [newExpense, setNewExpense] = useState({ description: '', amount: '', paidBy: currentUser.id || '', splitType: 'equal', splits: [] });
     const [error, setError] = useState('');
     const [isScanning, setIsScanning] = useState(false);
+    const [showQRCode, setShowQRCode] = useState(false);
 
     useEffect(() => {
         // Reset form when group changes, default paidBy to current user
@@ -691,6 +795,41 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
         });
     };
 
+    const handleShareGroup = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        const shareText = `Payça grubuna katıl: "${group.name}"\n\n${group.description || 'Harcamalarımızı birlikte takip edelim!'}\n\n${groupLink}`;
+
+        // Try native share API first (mobile)
+        if (navigator.share) {
+            navigator.share({
+                title: `Payça - ${group.name}`,
+                text: shareText,
+                url: groupLink
+            }).catch(err => console.log('Share cancelled'));
+        } else {
+            // Fallback: copy to clipboard
+            navigator.clipboard.writeText(shareText).then(() => {
+                alert('Grup linki kopyalandı! Arkadaşlarınla paylaşabilirsin.');
+            });
+        }
+    };
+
+    const handleShareWhatsApp = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        const shareText = `*Payça Grubuna Katıl!* 🎉\n\n📊 Grup: *${group.name}*\n${group.description ? `📝 ${group.description}\n` : ''}\n👥 ${group.members.length} üye\n\n🔗 Katılmak için tıkla:\n${groupLink}`;
+        const encodedMessage = encodeURIComponent(shareText);
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    };
+
+    const handleCopyLink = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        navigator.clipboard.writeText(groupLink).then(() => {
+            alert('✅ Grup linki kopyalandı!');
+        }).catch(() => {
+            alert('Link kopyalanamadı. Lütfen manuel olarak kopyalayın: ' + groupLink);
+        });
+    };
+
     const handleShareSummary = () => {
         let summary = `*Payça Grup Özeti: ${group.name}*\n\n`;
         summary += `Toplam Harcama: *${formatCurrency(totalExpenses)}*\n\n`;
@@ -756,7 +895,16 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                 <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
                 <h2>{group.name}</h2>
                 <div className="share-actions-container">
-                    <button className="share-button" onClick={handleShareSummary}>Paylaş</button>
+                    <div className="export-button">
+                        👥 Davet Et
+                        <div className="export-options">
+                            <button onClick={handleShareWhatsApp}>📱 WhatsApp ile Paylaş</button>
+                            <button onClick={() => setShowQRCode(true)}>📱 QR Kod Göster</button>
+                            <button onClick={handleCopyLink}>🔗 Linki Kopyala</button>
+                            <button onClick={handleShareGroup}>📤 Paylaş...</button>
+                        </div>
+                    </div>
+                    <button className="share-button" onClick={handleShareSummary}>Özet Paylaş</button>
                     <div className="export-button">
                         Dışa Aktar
                         <div className="export-options">
@@ -888,6 +1036,13 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                      )}
                 </div>
             </div>
+            {showQRCode && (
+                <QRCodeModal
+                    groupId={group.id}
+                    groupName={group.name}
+                    onClose={() => setShowQRCode(false)}
+                />
+            )}
         </div>
     );
 }
@@ -1327,7 +1482,9 @@ if (rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
         <React.StrictMode>
-            <App />
+            <AuthProvider>
+                <App />
+            </AuthProvider>
         </React.StrictMode>
     );
 }
