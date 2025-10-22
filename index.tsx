@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useGroups } from './src/hooks/useGroups';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -83,6 +84,51 @@ const sampleReceipts = [
 ];
 
 // --- COMPONENTS ---
+function QRCodeModal({ groupId, groupName, onClose }) {
+    const groupLink = `${window.location.origin}/#/group/${groupId}`;
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
+                <button className="modal-close-button" onClick={onClose}>&times;</button>
+                <h2>📱 QR Kod ile Katıl</h2>
+                <p style={{ marginBottom: '20px' }}>Bu QR kodu tarayarak gruba katılabilirsiniz</p>
+
+                <div style={{ background: 'white', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
+                    <QRCodeSVG
+                        value={groupLink}
+                        size={256}
+                        level="H"
+                        includeMargin={true}
+                    />
+                </div>
+
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                    <strong>{groupName}</strong>
+                </p>
+
+                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
+                    <button
+                        className="form-button"
+                        onClick={() => {
+                            navigator.clipboard.writeText(groupLink);
+                            alert('✅ Link kopyalandı!');
+                        }}
+                    >
+                        🔗 Linki Kopyala
+                    </button>
+                    <button
+                        className="secondary-button"
+                        onClick={onClose}
+                    >
+                        Kapat
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function InstallPwaPrompt({ onInstall, onDismiss, isIOS, hasInstallEvent }) {
     return (
         <div className="install-prompt-banner">
@@ -669,6 +715,7 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
     const [newExpense, setNewExpense] = useState({ description: '', amount: '', paidBy: currentUser.id || '', splitType: 'equal', splits: [] });
     const [error, setError] = useState('');
     const [isScanning, setIsScanning] = useState(false);
+    const [showQRCode, setShowQRCode] = useState(false);
 
     useEffect(() => {
         // Reset form when group changes, default paidBy to current user
@@ -748,6 +795,41 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
         });
     };
 
+    const handleShareGroup = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        const shareText = `Payça grubuna katıl: "${group.name}"\n\n${group.description || 'Harcamalarımızı birlikte takip edelim!'}\n\n${groupLink}`;
+
+        // Try native share API first (mobile)
+        if (navigator.share) {
+            navigator.share({
+                title: `Payça - ${group.name}`,
+                text: shareText,
+                url: groupLink
+            }).catch(err => console.log('Share cancelled'));
+        } else {
+            // Fallback: copy to clipboard
+            navigator.clipboard.writeText(shareText).then(() => {
+                alert('Grup linki kopyalandı! Arkadaşlarınla paylaşabilirsin.');
+            });
+        }
+    };
+
+    const handleShareWhatsApp = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        const shareText = `*Payça Grubuna Katıl!* 🎉\n\n📊 Grup: *${group.name}*\n${group.description ? `📝 ${group.description}\n` : ''}\n👥 ${group.members.length} üye\n\n🔗 Katılmak için tıkla:\n${groupLink}`;
+        const encodedMessage = encodeURIComponent(shareText);
+        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    };
+
+    const handleCopyLink = () => {
+        const groupLink = `${window.location.origin}/#/group/${group.id}`;
+        navigator.clipboard.writeText(groupLink).then(() => {
+            alert('✅ Grup linki kopyalandı!');
+        }).catch(() => {
+            alert('Link kopyalanamadı. Lütfen manuel olarak kopyalayın: ' + groupLink);
+        });
+    };
+
     const handleShareSummary = () => {
         let summary = `*Payça Grup Özeti: ${group.name}*\n\n`;
         summary += `Toplam Harcama: *${formatCurrency(totalExpenses)}*\n\n`;
@@ -813,7 +895,16 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                 <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
                 <h2>{group.name}</h2>
                 <div className="share-actions-container">
-                    <button className="share-button" onClick={handleShareSummary}>Paylaş</button>
+                    <div className="export-button">
+                        👥 Davet Et
+                        <div className="export-options">
+                            <button onClick={handleShareWhatsApp}>📱 WhatsApp ile Paylaş</button>
+                            <button onClick={() => setShowQRCode(true)}>📱 QR Kod Göster</button>
+                            <button onClick={handleCopyLink}>🔗 Linki Kopyala</button>
+                            <button onClick={handleShareGroup}>📤 Paylaş...</button>
+                        </div>
+                    </div>
+                    <button className="share-button" onClick={handleShareSummary}>Özet Paylaş</button>
                     <div className="export-button">
                         Dışa Aktar
                         <div className="export-options">
@@ -945,6 +1036,13 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                      )}
                 </div>
             </div>
+            {showQRCode && (
+                <QRCodeModal
+                    groupId={group.id}
+                    groupName={group.name}
+                    onClose={() => setShowQRCode(false)}
+                />
+            )}
         </div>
     );
 }
