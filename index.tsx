@@ -102,8 +102,19 @@ function InstallPwaPrompt({ onInstall, onDismiss, isIOS, hasInstallEvent }) {
 
 function App() {
     // Use Supabase Auth hook
-    const { user, loading: authLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
+    const { user: supabaseUser, loading: authLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
 
+    // Adapt Supabase user to app's expected format
+    const user = useMemo(() => {
+        if (!supabaseUser) return null;
+        return {
+            id: supabaseUser.id,
+            name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0] || 'User',
+            email: supabaseUser.email || '',
+        };
+    }, [supabaseUser]);
+
+    const [groups, setGroups] = useState([]);
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedGroupId, setSelectedGroupId] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
@@ -122,6 +133,29 @@ function App() {
         document.body.setAttribute('data-theme', theme);
         localStorage.setItem('payca-theme', theme);
     }, [theme]);
+
+    // Load groups from localStorage when user logs in
+    useEffect(() => {
+        if (user) {
+            try {
+                const storedGroups = localStorage.getItem(`payca-groups-${user.id}`);
+                const userGroups = storedGroups ? JSON.parse(storedGroups) : initialGroups;
+                setGroups(userGroups);
+            } catch (error) {
+                console.error("Error loading groups from localStorage:", error);
+                setGroups(initialGroups);
+            }
+        } else {
+            setGroups([]);
+        }
+    }, [user]);
+
+    // Save groups to localStorage when they change
+    useEffect(() => {
+        if (user && groups.length > 0) {
+            localStorage.setItem(`payca-groups-${user.id}`, JSON.stringify(groups));
+        }
+    }, [groups, user]);
 
     useEffect(() => {
         if (successMessage) {
@@ -263,6 +297,16 @@ function App() {
         groups.find(g => g.id === selectedGroupId),
         [groups, selectedGroupId]
     );
+
+    // Show loading state while checking authentication
+    if (authLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
+                <div style={{ fontSize: '24px', marginBottom: '16px' }}>Yükleniyor...</div>
+                <div className="spinner"></div>
+            </div>
+        );
+    }
 
     if (!user) {
         return (
