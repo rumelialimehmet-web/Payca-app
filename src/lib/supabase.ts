@@ -5,26 +5,37 @@ import type { Database } from './database.types';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env.local file.'
+// Check if Supabase credentials are configured
+const isSupabaseConfigured = supabaseUrl && supabaseAnonKey &&
+  !supabaseUrl.includes('your-project') &&
+  !supabaseAnonKey.includes('your-anon-key');
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    '⚠️ Supabase not configured. App will use localStorage only.\n' +
+    'To enable cloud sync and multi-user features, add Supabase credentials to .env.local'
   );
 }
 
-// Create Supabase client with TypeScript types
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-  },
-});
+// Create Supabase client with TypeScript types (or null if not configured)
+export const supabase = isSupabaseConfigured
+  ? createClient<Database>(supabaseUrl!, supabaseAnonKey!, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      },
+    })
+  : null;
 
 // Auth helper functions
 export const auth = {
   // Sign up with email and password
   signUp: async (email: string, password: string, displayName?: string) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') };
+    }
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -39,6 +50,9 @@ export const auth = {
 
   // Sign in with email and password
   signIn: async (email: string, password: string) => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') };
+    }
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -48,6 +62,9 @@ export const auth = {
 
   // Sign in with Google OAuth
   signInWithGoogle: async () => {
+    if (!supabase) {
+      return { data: null, error: new Error('Supabase not configured') };
+    }
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -59,24 +76,36 @@ export const auth = {
 
   // Sign out
   signOut: async () => {
+    if (!supabase) {
+      return { error: null };
+    }
     const { error } = await supabase.auth.signOut();
     return { error };
   },
 
   // Get current session
   getSession: async () => {
+    if (!supabase) {
+      return { data: { session: null }, error: null };
+    }
     const { data, error } = await supabase.auth.getSession();
     return { data, error };
   },
 
   // Get current user
   getUser: async () => {
+    if (!supabase) {
+      return { data: { user: null }, error: null };
+    }
     const { data, error } = await supabase.auth.getUser();
     return { data, error };
   },
 
   // Listen to auth state changes
   onAuthStateChange: (callback: (event: string, session: any) => void) => {
+    if (!supabase) {
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    }
     return supabase.auth.onAuthStateChange(callback);
   },
 };
