@@ -207,10 +207,12 @@ function App() {
             setTimeout(() => setSuccessMessage(''), 3000);
 
             // Trigger background sync if available
-            if ('serviceWorker' in navigator && 'sync' in registration) {
+            if ('serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then((registration) => {
-                    return registration.sync.register('sync-expenses');
-                });
+                    if ('sync' in registration) {
+                        return registration.sync.register('sync-expenses');
+                    }
+                }).catch((err) => console.log('Sync not supported:', err));
             }
         };
 
