@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { scanReceipt } from '../lib/gemini';
+import { scanReceipt } from '../lib/gemini-rest';
 
 interface ReceiptScannerProps {
     onClose: () => void;
