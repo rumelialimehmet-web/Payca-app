@@ -18,7 +18,7 @@ export async function scanReceipt(imageData: string): Promise<{
     success: boolean;
     data?: {
         amount?: number;
-        date?: string;
+        date?: string; // YYYY-MM-DD
         merchantName?: string;
         category?: string;
         items?: Array<{ name: string; price: number }>;
@@ -66,11 +66,12 @@ Example Turkish receipt categories:
             {
                 inlineData: {
                     data: imageData.split(',')[1] || imageData, // Remove data:image/... prefix if present
-                    mimeType: 'image/jpeg',
+                    mimeType: 'image/jpeg', // mimeType'ı JPEG olarak varsayıyoruz, gerekirse dinamik hale getirebilirsiniz.
                 },
             },
         ];
 
+        // 'gemini-1.5-flash' gibi modern modeller metin ve resim girdilerini tek bir dizide kabul eder.
         const result = await model.generateContent([prompt, ...imageParts]);
         const response = result.response;
         const text = response.text();
