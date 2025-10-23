@@ -1,0 +1,44 @@
+{
+  "name": "Payça - Masrafları Kolayca Paylaş",
+  "short_name": "Payça",
+  "description": "Arkadaş grupları, ev arkadaşları ve tatiller için harcamaları takip etmenin en basit yolu.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "finance",
+    "productivity",
+    "utilities"
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Harcama Ekle",
+      "short_name": "Harcama",
+      "description": "Yeni harcama ekle",
+      "url": "/?action=add-expense",
+      "icons": []
+    },
+    {
+      "name": "Grup Oluştur",
+      "short_name": "Grup",
+      "description": "Yeni grup oluştur",
+      "url": "/?action=create-group",
+      "icons": []
+    }
+  ],
+  "prefer_related_applications": false,
+  "scope": "/",
+  "lang": "tr-TR",
+  "dir": "ltr"
+}
