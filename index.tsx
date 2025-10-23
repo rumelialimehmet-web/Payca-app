@@ -426,11 +426,11 @@ function LandingPage({ onShowAuth }) {
                 <h2>Masrafları Kolayca Paylaşın</h2>
                 <p className="subtitle">Arkadaş grupları, ev arkadaşları ve tatiller için harcamaları takip etmenin en basit yolu.</p>
                 <div className="landing-actions">
-                    <button className="cta-button" onClick={() => onShowAuth('register')} style={{ fontSize: '1.1rem', padding: '14px' }}>
-                        Hemen Başla
+                    <button className="cta-button" onClick={() => onShowAuth('register')} style={{ fontSize: '1.1rem', padding: '14px 32px' }}>
+                        📧 Gmail ile Kayıt Ol
                     </button>
                     <button className="secondary-button" onClick={() => onShowAuth('login')}>
-                        Giriş Yap
+                        Zaten Hesabım Var
                     </button>
                 </div>
                  <div style={{ marginTop: '24px', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
@@ -510,13 +510,11 @@ function AuthModal({ view, onLogin, onSignup, onGoogleLogin, onClose }) {
                 <button className="modal-close-button" onClick={onClose}>&times;</button>
                 <h2>{currentView === 'register' ? 'Hesap Oluştur' : 'Giriş Yap'}</h2>
 
-                {/* Google OAuth - Temporarily disabled until configured in Supabase
                 <button className="gmail-button" onClick={handleGmailAuth}>
                     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.20455C17.64 8.56682 17.5827 7.95273 17.4764 7.36364H9V10.845H13.8436C13.635 11.97 13.0009 12.9232 12.0477 13.5618V15.8195H14.9564C16.6582 14.2527 17.64 11.9455 17.64 9.20455Z" fill="#4285F4"/><path d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5618C11.2418 14.1018 10.2109 14.4205 9 14.4205C6.65591 14.4205 4.67182 12.8373 3.96409 10.71H0.957275V13.0418C2.43818 15.9832 5.48182 18 9 18Z" fill="#34A853"/><path d="M3.96409 10.71C3.78409 10.17 3.68182 9.59318 3.68182 9C3.68182 8.40682 3.78409 7.83 3.96409 7.29H0.957275V9.62182C0.347727 7.545 0.347727 5.31818 0.957275 3.24L3.96409 5.57182C4.67182 3.44455 6.65591 1.86136 9 1.86136C10.3214 1.86136 11.5077 2.33864 12.4405 3.20455L15.0218 0.623182C13.4632 -0.209545 11.4259 -0.636364 9 -0.636364C5.48182 -0.636364 2.43818 1.38136 0.957275 4.32273C-0.319091 6.99545 -0.319091 11.0045 0.957275 13.6773L3.96409 10.71Z" fill="#FBBC05"/><path d="M9 3.57955C10.7182 3.57955 12.0273 4.22727 12.6886 4.85227L15.0805 2.46C13.4632 0.927273 11.43 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z" fill="#EA4335"/></svg>
                     {currentView === 'register' ? 'Gmail ile Kayıt Ol' : 'Gmail ile Giriş Yap'}
                 </button>
                 <div className="auth-separator">veya</div>
-                */}
 
                 <form onSubmit={handleSubmit}>
                     {currentView === 'register' && (
