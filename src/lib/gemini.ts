@@ -33,7 +33,7 @@ export async function scanReceipt(imageData: string): Promise<{
     }
 
     try {
-        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
         const prompt = `You are a receipt OCR scanner. Analyze this receipt image and extract the following information in JSON format:
 
@@ -114,7 +114,7 @@ export async function getFinancialAdvice(
     }
 
     try {
-        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
         // Calculate total spending and category breakdown
         let totalSpending = 0;
