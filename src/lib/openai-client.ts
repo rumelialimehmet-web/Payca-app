@@ -42,6 +42,14 @@ export async function scanReceipt(imageData: string): Promise<{
     try {
         console.log('[OpenAI] Scanning receipt with GPT-4o Vision...');
 
+        // Ensure image data has proper data URL format
+        let formattedImageData = imageData;
+        if (!imageData.startsWith('data:')) {
+            formattedImageData = `data:image/jpeg;base64,${imageData}`;
+        }
+
+        console.log('[OpenAI] Image data format:', formattedImageData.substring(0, 50) + '...');
+
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
             messages: [
@@ -80,7 +88,7 @@ Example Turkish receipt categories:
                         {
                             type: 'image_url',
                             image_url: {
-                                url: imageData
+                                url: formattedImageData
                             }
                         }
                     ]
