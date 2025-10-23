@@ -33,7 +33,6 @@ export async function scanReceipt(imageData: string): Promise<{
     }
 
     try {
-        // GÜNCELLENDİ: Model adı 'gemini-1.5-flash' olarak değiştirildi.
         const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         const prompt = `You are a receipt OCR scanner. Analyze this receipt image and extract the following information in JSON format:
@@ -116,7 +115,6 @@ export async function getFinancialAdvice(
     }
 
     try {
-        // GÜNCELLENDİ: Model adı 'gemini-1.5-flash' olarak değiştirildi.
         const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         // Calculate total spending and category breakdown

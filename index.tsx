@@ -185,6 +185,10 @@ function App() {
     // AI Advisor state
     const [showAIAdvisor, setShowAIAdvisor] = useState(false);
 
+    // Offline Mode state
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
     // FIX: Add type cast to `(window as any)` to access non-standard `MSStream` property.
     const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream, []);
     const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches, []);
@@ -193,6 +197,50 @@ function App() {
         document.body.setAttribute('data-theme', theme);
         localStorage.setItem('payca-theme', theme);
     }, [theme]);
+
+    // Offline Mode: Listen for online/offline events
+    useEffect(() => {
+        const handleOnline = () => {
+            console.log('[Offline Mode] Back online!');
+            setIsOnline(true);
+            setSuccessMessage('✅ Bağlantı yeniden kuruldu! Senkronize ediliyor...');
+            setTimeout(() => setSuccessMessage(''), 3000);
+
+            // Trigger background sync if available
+            if ('serviceWorker' in navigator && 'sync' in registration) {
+                navigator.serviceWorker.ready.then((registration) => {
+                    return registration.sync.register('sync-expenses');
+                });
+            }
+        };
+
+        const handleOffline = () => {
+            console.log('[Offline Mode] Gone offline!');
+            setIsOnline(false);
+            setSuccessMessage('⚠️ İnternet bağlantısı yok. Çevrimdışı modda çalışıyorsunuz.');
+            setTimeout(() => setSuccessMessage(''), 4000);
+        };
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        // Listen for service worker messages
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('message', (event) => {
+                if (event.data.type === 'SYNC_COMPLETE') {
+                    console.log('[Offline Mode] Sync complete:', event.data.count, 'items');
+                    setPendingSyncCount(0);
+                    setSuccessMessage(`✅ ${event.data.count} harcama senkronize edildi!`);
+                    setTimeout(() => setSuccessMessage(''), 3000);
+                }
+            });
+        }
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
 
     // Load groups from localStorage when user logs in
     useEffect(() => {
@@ -471,6 +519,22 @@ function App() {
                 <div className="logo" onClick={() => handleNavigate('dashboard')}>
                     <div className="hexagon"></div>
                     <h1>Payça</h1>
+                    {!isOnline && (
+                        <span style={{
+                            marginLeft: '12px',
+                            padding: '4px 12px',
+                            background: 'var(--warning-color)',
+                            color: 'var(--surface-color)',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                        }}>
+                            📴 Çevrimdışı
+                        </span>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <span style={{ fontWeight: 600 }}>Merhaba, {user.name.split(' ')[0]}</span>
