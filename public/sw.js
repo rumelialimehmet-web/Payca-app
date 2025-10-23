@@ -1,8 +1,8 @@
 // Payça Service Worker - Offline Mode Support
-// Version 1.0.0
+// Version 2.0.0 - UPDATED: Clear old cache and force new code
 
-const CACHE_NAME = 'payca-cache-v1';
-const RUNTIME_CACHE = 'payca-runtime-v1';
+const CACHE_NAME = 'payca-cache-v2'; // UPDATED VERSION
+const RUNTIME_CACHE = 'payca-runtime-v2'; // UPDATED VERSION
 
 // Files to cache immediately on install
 const PRECACHE_URLS = [
