@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useGroups } from './src/hooks/useGroups';
 import { QRCodeSVG } from 'qrcode.react';
 import { ReceiptScanner } from './src/components/ReceiptScanner';
+import { AIAdvisor } from './src/components/AIAdvisor';
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -180,6 +181,9 @@ function App() {
 
     // Receipt Scanner state
     const [showReceiptScanner, setShowReceiptScanner] = useState(false);
+
+    // AI Advisor state
+    const [showAIAdvisor, setShowAIAdvisor] = useState(false);
 
     // FIX: Add type cast to `(window as any)` to access non-standard `MSStream` property.
     const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream, []);
@@ -442,7 +446,7 @@ function App() {
             case 'settlement':
                 return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} />;
             case 'analytics':
-                return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} />;
+                return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} setShowAIAdvisor={setShowAIAdvisor} />;
             case 'settings':
                 return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} />;
             case 'dashboard':
@@ -497,6 +501,15 @@ function App() {
                 <ReceiptScanner
                     onClose={() => setShowReceiptScanner(false)}
                     onScanComplete={handleReceiptScanComplete}
+                />
+            )}
+
+            {/* AI Financial Advisor Modal */}
+            {showAIAdvisor && (
+                <AIAdvisor
+                    groups={groups}
+                    userId={user.id}
+                    onClose={() => setShowAIAdvisor(false)}
                 />
             )}
 
@@ -1233,7 +1246,7 @@ function SettlementScreen({ group, onNavigate }) {
     );
 }
 
-function AnalyticsScreen({ groups, currentUser, onNavigate }) {
+function AnalyticsScreen({ groups, currentUser, onNavigate, setShowAIAdvisor }) {
     const [budget, setBudget] = useState(2000);
 
     // FIX: Correctly calculate the user's personal *share* of each expense for accurate analytics.
@@ -1352,7 +1365,12 @@ function AnalyticsScreen({ groups, currentUser, onNavigate }) {
         <div>
             <div className="detail-header">
                 <h2>İstatistikler ({currentUser.name})</h2>
-                <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button onClick={() => setShowAIAdvisor(true)} className="cta-button" style={{ fontSize: '0.9rem' }}>
+                        🤖 AI Danışman
+                    </button>
+                    <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
+                </div>
             </div>
             <div className="analytics-grid">
                 <div className="detail-card stat-card">
