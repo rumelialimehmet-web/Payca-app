@@ -1266,3 +1266,208 @@ html {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ============================================
+   MOBILE: BOTTOM NAVIGATION
+   ============================================ */
+.bottom-navigation {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background-color: var(--surface-color);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--text-secondary);
+    min-width: 64px;
+    min-height: 48px;
+}
+
+.bottom-nav-item.active {
+    color: #8b5cf6;
+}
+
+.bottom-nav-item:active {
+    transform: scale(0.95);
+}
+
+.bottom-nav-icon {
+    font-size: 24px;
+    transition: transform 0.3s ease;
+}
+
+.bottom-nav-item.active .bottom-nav-icon {
+    transform: scale(1.1);
+}
+
+.bottom-nav-label {
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* ============================================
+   MOBILE: FLOATING ACTION BUTTON (FAB)
+   ============================================ */
+.fab-container {
+    position: fixed;
+    bottom: 84px; /* Above bottom nav */
+    right: 20px;
+    z-index: 1001;
+}
+
+.fab {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--brand-gradient);
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 10;
+}
+
+.fab:active {
+    transform: scale(0.95);
+}
+
+.fab.fab-expanded {
+    background: #ef4444;
+    transform: rotate(45deg);
+}
+
+.fab-icon {
+    font-size: 28px;
+    font-weight: 300;
+    color: white;
+    line-height: 1;
+    transition: transform 0.3s ease;
+}
+
+.fab:hover {
+    box-shadow: 0 6px 16px rgba(139, 92, 246, 0.5);
+    transform: translateY(-2px);
+}
+
+.fab.fab-expanded:hover {
+    transform: rotate(45deg) translateY(-2px);
+}
+
+/* FAB Menu (Extended Actions) */
+.fab-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: -1;
+    animation: fadeIn 0.2s ease;
+}
+
+.fab-menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideUp 0.3s ease-out;
+}
+
+.fab-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px 12px 16px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    animation: slideUp 0.3s ease-out;
+    min-width: 180px;
+}
+
+.fab-menu-item:hover {
+    transform: translateX(-4px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.fab-menu-item:active {
+    transform: translateX(-4px) scale(0.98);
+}
+
+.fab-menu-icon {
+    font-size: 20px;
+}
+
+.fab-menu-label {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ============================================
+   MOBILE: ADJUST LAYOUT FOR BOTTOM NAV
+   ============================================ */
+@media (max-width: 768px) {
+    /* Add padding bottom to prevent content being hidden by bottom nav */
+    main {
+        padding-bottom: 80px;
+    }
+
+    /* Hide desktop header buttons on mobile */
+    .app-header > div:last-child {
+        display: none;
+    }
+
+    /* Make header simpler on mobile */
+    .app-header {
+        padding: 12px 16px;
+        margin-bottom: 16px;
+    }
+
+    .logo h1 {
+        font-size: 1.5rem;
+    }
+
+    /* Hide app footer on mobile (bottom nav replaces it) */
+    .app-footer {
+        display: none;
+    }
+}
+
+/* Desktop: Hide bottom nav and FAB */
+@media (min-width: 769px) {
+    .bottom-navigation,
+    .fab-container {
+        display: none;
+    }
+}
