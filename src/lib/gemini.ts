@@ -18,7 +18,7 @@ export async function scanReceipt(imageData: string): Promise<{
     success: boolean;
     data?: {
         amount?: number;
-        date?: string;
+        date?: string; // YYYY-MM-DD
         merchantName?: string;
         category?: string;
         items?: Array<{ name: string; price: number }>;
@@ -33,7 +33,8 @@ export async function scanReceipt(imageData: string): Promise<{
     }
 
     try {
-        const model = geminiClient.getGenerativeModel({ model: 'gemini-pro-vision' });
+        // GÜNCELLENDİ: Model adı 'gemini-1.5-flash' olarak değiştirildi.
+        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         const prompt = `You are a receipt OCR scanner. Analyze this receipt image and extract the following information in JSON format:
 
@@ -66,11 +67,12 @@ Example Turkish receipt categories:
             {
                 inlineData: {
                     data: imageData.split(',')[1] || imageData, // Remove data:image/... prefix if present
-                    mimeType: 'image/jpeg',
+                    mimeType: 'image/jpeg', // mimeType'ı JPEG olarak varsayıyoruz, gerekirse dinamik hale getirebilirsiniz.
                 },
             },
         ];
 
+        // 'gemini-1.5-flash' gibi modern modeller metin ve resim girdilerini tek bir dizide kabul eder.
         const result = await model.generateContent([prompt, ...imageParts]);
         const response = result.response;
         const text = response.text();
@@ -114,7 +116,8 @@ export async function getFinancialAdvice(
     }
 
     try {
-        const model = geminiClient.getGenerativeModel({ model: 'gemini-pro' });
+        // GÜNCELLENDİ: Model adı 'gemini-1.5-flash' olarak değiştirildi.
+        const model = geminiClient.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
         // Calculate total spending and category breakdown
         let totalSpending = 0;
