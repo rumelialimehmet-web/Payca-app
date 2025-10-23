@@ -171,6 +171,12 @@ function App() {
     const [showHelpFeedbackModal, setShowHelpFeedbackModal] = useState(false);
     const [authModal, setAuthModal] = useState({ isOpen: false, view: 'login' });
 
+    // Mobile: Bottom navigation active tab
+    const [activeTab, setActiveTab] = useState('home');
+
+    // Mobile: FAB extended state
+    const [fabExpanded, setFabExpanded] = useState(false);
+
     // FIX: Add type cast to `(window as any)` to access non-standard `MSStream` property.
     const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream, []);
     const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches, []);
@@ -364,6 +370,30 @@ function App() {
         );
     }
 
+    // Handle FAB actions
+    const handleFabAction = (actionId) => {
+        switch (actionId) {
+            case 'scan':
+                // TODO: Open receipt scanner (Gemini Vision)
+                setSuccessMessage('Fatura tarama özelliği yakında eklenecek!');
+                setTimeout(() => setSuccessMessage(''), 3000);
+                break;
+            case 'expense':
+                // Navigate to first group or create group
+                if (groups.length > 0) {
+                    handleNavigate('groupDetail', groups[0].id);
+                } else {
+                    handleNavigate('createGroup');
+                }
+                break;
+            case 'group':
+                handleNavigate('createGroup');
+                break;
+            default:
+                break;
+        }
+    };
+
     const renderContent = () => {
         if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement')) {
             handleNavigate('dashboard');
@@ -378,6 +408,8 @@ function App() {
                 return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} />;
             case 'analytics':
                 return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} />;
+            case 'settings':
+                return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} />;
             case 'dashboard':
             default:
                 return groups.length > 0
@@ -410,6 +442,21 @@ function App() {
             </header>
             {successMessage && <div className={`success-toast ${successMessage ? 'show' : ''}`}>{successMessage}</div>}
             <main>{renderContent()}</main>
+
+            {/* Mobile: Bottom Navigation */}
+            <BottomNavigation
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                onNavigate={handleNavigate}
+            />
+
+            {/* Mobile: Floating Action Button */}
+            <FloatingActionButton
+                expanded={fabExpanded}
+                onToggle={() => setFabExpanded(!fabExpanded)}
+                onAction={handleFabAction}
+            />
+
             <AppFooter />
         </div>
     );
@@ -1460,6 +1507,86 @@ function HelpFeedbackModal({ user, onUpdateUser, onClose, onResetData, onLogout 
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+// Bottom Navigation Component (Mobile)
+function BottomNavigation({ activeTab, onTabChange, onNavigate }) {
+    const tabs = [
+        { id: 'home', icon: '🏠', label: 'Ana', view: 'dashboard' },
+        { id: 'analytics', icon: '📊', label: 'Analiz', view: 'analytics' },
+        { id: 'groups', icon: '💰', label: 'Gruplar', view: 'dashboard' },
+        { id: 'settings', icon: '⚙️', label: 'Ayarlar', view: 'settings' }
+    ];
+
+    const handleTabClick = (tab) => {
+        onTabChange(tab.id);
+        if (tab.view) {
+            onNavigate(tab.view);
+        }
+    };
+
+    return (
+        <nav className="bottom-navigation">
+            {tabs.map((tab) => (
+                <button
+                    key={tab.id}
+                    className={`bottom-nav-item ${activeTab === tab.id ? 'active' : ''}`}
+                    onClick={() => handleTabClick(tab)}
+                    aria-label={tab.label}
+                >
+                    <span className="bottom-nav-icon">{tab.icon}</span>
+                    <span className="bottom-nav-label">{tab.label}</span>
+                </button>
+            ))}
+        </nav>
+    );
+}
+
+// Floating Action Button (FAB) with Extended Menu
+function FloatingActionButton({ expanded, onToggle, onAction }) {
+    const actions = [
+        { id: 'scan', icon: '📷', label: 'Fatura Tara', color: '#8b5cf6' },
+        { id: 'expense', icon: '💰', label: 'Harcama Ekle', color: '#6366f1' },
+        { id: 'group', icon: '👥', label: 'Grup Oluştur', color: '#ec4899' }
+    ];
+
+    const handleAction = (actionId) => {
+        onAction(actionId);
+        onToggle(); // Close menu after action
+    };
+
+    return (
+        <div className="fab-container">
+            {expanded && (
+                <>
+                    <div className="fab-backdrop" onClick={onToggle}></div>
+                    <div className="fab-menu">
+                        {actions.map((action, index) => (
+                            <button
+                                key={action.id}
+                                className="fab-menu-item"
+                                onClick={() => handleAction(action.id)}
+                                style={{
+                                    animationDelay: `${index * 50}ms`,
+                                    backgroundColor: action.color
+                                }}
+                            >
+                                <span className="fab-menu-icon">{action.icon}</span>
+                                <span className="fab-menu-label">{action.label}</span>
+                            </button>
+                        ))}
+                    </div>
+                </>
+            )}
+            <button
+                className={`fab ${expanded ? 'fab-expanded' : ''}`}
+                onClick={onToggle}
+                aria-label={expanded ? 'Kapat' : 'Hızlı Menü'}
+            >
+                <span className="fab-icon">{expanded ? '✕' : '+'}</span>
+            </button>
         </div>
     );
 }
