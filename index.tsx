@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useGroups } from './src/hooks/useGroups';
 import { QRCodeSVG } from 'qrcode.react';
+import { ReceiptScanner } from './src/components/ReceiptScanner';
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -176,6 +177,9 @@ function App() {
 
     // Mobile: FAB extended state
     const [fabExpanded, setFabExpanded] = useState(false);
+
+    // Receipt Scanner state
+    const [showReceiptScanner, setShowReceiptScanner] = useState(false);
 
     // FIX: Add type cast to `(window as any)` to access non-standard `MSStream` property.
     const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream, []);
@@ -374,9 +378,8 @@ function App() {
     const handleFabAction = (actionId) => {
         switch (actionId) {
             case 'scan':
-                // TODO: Open receipt scanner (Gemini Vision)
-                setSuccessMessage('Fatura tarama özelliği yakında eklenecek!');
-                setTimeout(() => setSuccessMessage(''), 3000);
+                // Open receipt scanner with Gemini Vision
+                setShowReceiptScanner(true);
                 break;
             case 'expense':
                 // Navigate to first group or create group
@@ -392,6 +395,38 @@ function App() {
             default:
                 break;
         }
+    };
+
+    // Handle receipt scan completion
+    const handleReceiptScanComplete = (data) => {
+        // If we have groups, add to first group; otherwise create a new group
+        if (groups.length === 0) {
+            setSuccessMessage('⚠️ Önce bir grup oluşturun!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+            handleNavigate('createGroup');
+            return;
+        }
+
+        // Add expense to the first group (or we could show a group selector)
+        const firstGroup = groups[0];
+        const newExpense = {
+            id: Date.now().toString(),
+            description: data.merchantName || 'Taranmış Fatura',
+            amount: data.amount || 0,
+            paidBy: user.id,
+            date: data.date || new Date().toISOString(),
+            category: data.category || 'other',
+            splitType: 'equal',
+            splits: firstGroup.members.map(memberId => ({
+                userId: memberId,
+                amount: (data.amount || 0) / firstGroup.members.length
+            }))
+        };
+
+        handleAddExpense(firstGroup.id, newExpense);
+        setSuccessMessage(`✅ Fatura tarandı! ${formatCurrency(data.amount)} harcama eklendi.`);
+        setTimeout(() => setSuccessMessage(''), 4000);
+        handleNavigate('groupDetail', firstGroup.id);
     };
 
     const renderContent = () => {
@@ -456,6 +491,14 @@ function App() {
                 onToggle={() => setFabExpanded(!fabExpanded)}
                 onAction={handleFabAction}
             />
+
+            {/* Receipt Scanner Modal */}
+            {showReceiptScanner && (
+                <ReceiptScanner
+                    onClose={() => setShowReceiptScanner(false)}
+                    onScanComplete={handleReceiptScanComplete}
+                />
+            )}
 
             <AppFooter />
         </div>
