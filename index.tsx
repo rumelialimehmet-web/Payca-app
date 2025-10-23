@@ -6,6 +6,7 @@ import { useGroups } from './src/hooks/useGroups';
 import { QRCodeSVG } from 'qrcode.react';
 import { ReceiptScanner } from './src/components/ReceiptScanner';
 import { AIAdvisor } from './src/components/AIAdvisor';
+import './src/lib/list-models'; // Check available Gemini models
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
