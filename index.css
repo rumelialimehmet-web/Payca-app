@@ -1471,3 +1471,224 @@ html {
         display: none;
     }
 }
+
+/* ============================================
+   RECEIPT SCANNER COMPONENT
+   ============================================ */
+.receipt-scanner-modal {
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.scanner-description {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+    line-height: 1.6;
+}
+
+.scanner-buttons {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+}
+
+.scanner-button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px 24px;
+    background: var(--surface-color-light);
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.scanner-button:hover {
+    border-color: #8b5cf6;
+    background: var(--surface-color);
+    transform: translateY(-2px);
+}
+
+.scanner-button-icon {
+    font-size: 48px;
+}
+
+.scanner-button-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.scanner-tips {
+    background: var(--surface-color-light);
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 24px;
+}
+
+.scanner-tips p {
+    margin: 0 0 12px 0;
+    font-weight: 600;
+}
+
+.scanner-tips ul {
+    margin: 0;
+    padding-left: 20px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+}
+
+.scanner-preview-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.scanner-preview {
+    background: var(--surface-color-light);
+    border-radius: 12px;
+    overflow: hidden;
+    max-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.scanner-preview img {
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+}
+
+.scanner-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.scanner-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.scanner-actions button {
+    flex: 1;
+}
+
+.scanner-result-section {
+    animation: fadeIn 0.5s ease-out;
+}
+
+.scanner-success-banner {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid #22c55e;
+    color: #22c55e;
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    font-weight: 600;
+}
+
+.success-icon {
+    font-size: 24px;
+}
+
+.scanned-data-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.scanned-data-card {
+    background: var(--surface-color-light);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.scanned-data-card.highlight {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border-color: #8b5cf6;
+}
+
+.scanned-data-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.scanned-data-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.scanned-items {
+    background: var(--surface-color-light);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 24px;
+}
+
+.scanned-items h4 {
+    margin: 0 0 16px 0;
+    font-size: 16px;
+    color: var(--text-primary);
+}
+
+.scanned-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.scanned-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--surface-color);
+    border-radius: 8px;
+}
+
+.scanned-item-name {
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.scanned-item-price {
+    font-weight: 600;
+    color: #8b5cf6;
+}
+
+@media (max-width: 768px) {
+    .scanner-buttons {
+        flex-direction: column;
+    }
+
+    .scanner-button {
+        padding: 24px;
+    }
+
+    .scanned-data-cards {
+        grid-template-columns: 1fr;
+    }
+}
