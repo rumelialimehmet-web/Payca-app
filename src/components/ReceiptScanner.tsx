@@ -20,6 +20,9 @@ export function ReceiptScanner({ onClose, onScanComplete }: ReceiptScannerProps)
     const fileInputRef = useRef<HTMLInputElement>(null);
     const cameraInputRef = useRef<HTMLInputElement>(null);
 
+    // Detect if device is mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -86,26 +89,33 @@ export function ReceiptScanner({ onClose, onScanComplete }: ReceiptScannerProps)
                 {!selectedImage && !scannedData && (
                     <div className="scanner-input-section">
                         <p className="scanner-description">
-                            Faturanızın fotoğrafını çekin veya galerinizden yükleyin.
-                            Yapay zeka faturadaki bilgileri otomatik olarak çıkaracak.
+                            {isMobile
+                                ? 'Faturanızın fotoğrafını çekin veya galerinizden yükleyin.'
+                                : 'Fatura resmini bilgisayarınızdan yükleyin.'
+                            }
+                            {' '}Yapay zeka faturadaki bilgileri otomatik olarak çıkaracak.
                         </p>
 
                         <div className="scanner-buttons">
-                            <input
-                                ref={cameraInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={handleFileSelect}
-                                style={{ display: 'none' }}
-                            />
-                            <button
-                                className="scanner-button camera-button"
-                                onClick={() => cameraInputRef.current?.click()}
-                            >
-                                <span className="scanner-button-icon">📸</span>
-                                <span className="scanner-button-label">Kamera ile Çek</span>
-                            </button>
+                            {isMobile && (
+                                <>
+                                    <input
+                                        ref={cameraInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        onChange={handleFileSelect}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <button
+                                        className="scanner-button camera-button"
+                                        onClick={() => cameraInputRef.current?.click()}
+                                    >
+                                        <span className="scanner-button-icon">📸</span>
+                                        <span className="scanner-button-label">Kamera ile Çek</span>
+                                    </button>
+                                </>
+                            )}
 
                             <input
                                 ref={fileInputRef}
@@ -119,7 +129,7 @@ export function ReceiptScanner({ onClose, onScanComplete }: ReceiptScannerProps)
                                 onClick={() => fileInputRef.current?.click()}
                             >
                                 <span className="scanner-button-icon">📁</span>
-                                <span className="scanner-button-label">Galeriden Seç</span>
+                                <span className="scanner-button-label">{isMobile ? 'Galeriden Seç' : 'Dosya Seç'}</span>
                             </button>
                         </div>
 

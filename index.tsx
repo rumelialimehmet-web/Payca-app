@@ -381,6 +381,10 @@ function App() {
     // Handle FAB actions
     const handleFabAction = (actionId) => {
         switch (actionId) {
+            case 'advisor':
+                // Open AI Financial Advisor
+                setShowAIAdvisor(true);
+                break;
             case 'scan':
                 // Open receipt scanner with Gemini Vision
                 setShowReceiptScanner(true);
@@ -471,6 +475,7 @@ function App() {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <span style={{ fontWeight: 600 }}>Merhaba, {user.name.split(' ')[0]}</span>
                     <button className="cta-button" onClick={() => handleNavigate('createGroup')}>Yeni Grup</button>
+                    <button className="secondary-button" onClick={() => setShowAIAdvisor(true)} title="AI Finansal Danışman">🤖 AI Danışman</button>
                     <button className="secondary-button" onClick={() => handleNavigate('analytics')}>İstatistikler</button>
                     <button className="secondary-button" onClick={() => setShowHelpFeedbackModal(true)}>Yardım</button>
                     <button className="theme-toggle-button" onClick={handleThemeToggle} title="Temayı Değiştir">
@@ -1608,6 +1613,7 @@ function BottomNavigation({ activeTab, onTabChange, onNavigate }) {
 // Floating Action Button (FAB) with Extended Menu
 function FloatingActionButton({ expanded, onToggle, onAction }) {
     const actions = [
+        { id: 'advisor', icon: '🤖', label: 'AI Danışman', color: '#10b981' },
         { id: 'scan', icon: '📷', label: 'Fatura Tara', color: '#8b5cf6' },
         { id: 'expense', icon: '💰', label: 'Harcama Ekle', color: '#6366f1' },
         { id: 'group', icon: '👥', label: 'Grup Oluştur', color: '#ec4899' }
