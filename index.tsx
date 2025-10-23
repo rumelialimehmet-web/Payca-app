@@ -541,6 +541,7 @@ function App() {
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
                     <span style={{ fontWeight: 600 }}>Merhaba, {user.name.split(' ')[0]}</span>
                     <button className="cta-button" onClick={() => handleNavigate('createGroup')}>Yeni Grup</button>
+                    <button className="secondary-button" onClick={() => setShowReceiptScanner(true)} title="Fatura Tara">📷 Fatura Tara</button>
                     <button className="secondary-button" onClick={() => setShowAIAdvisor(true)} title="AI Finansal Danışman">🤖 AI Danışman</button>
                     <button className="secondary-button" onClick={() => handleNavigate('analytics')}>İstatistikler</button>
                     <button className="secondary-button" onClick={() => setShowHelpFeedbackModal(true)}>Yardım</button>

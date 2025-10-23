@@ -49,6 +49,7 @@ export async function scanReceipt(imageData: string): Promise<{
         }
 
         console.log('[OpenAI] Image data format:', formattedImageData.substring(0, 50) + '...');
+        console.log('[OpenAI] Image data length:', formattedImageData.length);
 
         const response = await openai.chat.completions.create({
             model: 'gpt-4o',
@@ -98,8 +99,11 @@ Example Turkish receipt categories:
             temperature: 0.2
         });
 
+        console.log('[OpenAI] API Response received:', response);
+
         const text = response.choices[0]?.message?.content;
         if (!text) {
+            console.error('[OpenAI] No content in response:', response);
             throw new Error('No response from OpenAI');
         }
 
@@ -109,7 +113,11 @@ Example Turkish receipt categories:
         let jsonText = text.trim();
         jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
+        console.log('[OpenAI] Parsing JSON:', jsonText);
+
         const receiptData = JSON.parse(jsonText);
+
+        console.log('[OpenAI] Parsed receipt data:', receiptData);
 
         return {
             success: true,
@@ -117,9 +125,28 @@ Example Turkish receipt categories:
         };
     } catch (error: any) {
         console.error('[OpenAI] Receipt scanning error:', error);
+        console.error('[OpenAI] Error details:', {
+            message: error.message,
+            status: error.status,
+            type: error.type,
+            response: error.response
+        });
+
+        // More specific error messages
+        let errorMessage = 'Failed to scan receipt. Please try again.';
+        if (error.status === 401) {
+            errorMessage = 'API key hatası. Lütfen API key\'inizi kontrol edin.';
+        } else if (error.status === 429) {
+            errorMessage = 'Çok fazla istek. Lütfen birkaç saniye bekleyin.';
+        } else if (error.status === 400) {
+            errorMessage = 'Resim formatı hatalı. Lütfen farklı bir resim deneyin.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+
         return {
             success: false,
-            error: error.message || 'Failed to scan receipt. Please try again.',
+            error: errorMessage,
         };
     }
 }
