@@ -35,8 +35,8 @@ export async function scanReceipt(imageData: string): Promise<{
         // Remove data:image/... prefix if present
         const base64Image = imageData.includes(',') ? imageData.split(',')[1] : imageData;
 
-        // Use v1 API endpoint (not v1beta)
-        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+        // Use v1beta API with gemini-1.5-flash-latest (stable model name)
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
 
         const prompt = `You are a receipt OCR scanner. Analyze this receipt image and extract the following information in JSON format:
 
@@ -176,8 +176,8 @@ Provide personalized financial advice in Turkish:
 
 Format as a friendly message, not a formal report.`;
 
-        // Use v1 API endpoint (not v1beta)
-        const API_URL = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+        // Use v1beta API with gemini-1.5-flash-latest (stable model name)
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
 
         const requestBody = {
             contents: [
