@@ -6,6 +6,9 @@ import { useGroups } from './src/hooks/useGroups';
 import { QRCodeSVG } from 'qrcode.react';
 import { ReceiptScanner } from './src/components/ReceiptScanner';
 import { AIAdvisor } from './src/components/AIAdvisor';
+import { RecurringExpenses } from './src/components/RecurringExpenses';
+import { exportGroupToExcel, exportAllGroupsToExcel } from './src/lib/excel-export';
+import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './src/lib/recurring-utils';
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -266,6 +269,32 @@ function App() {
             localStorage.setItem(`payca-groups-${user.id}`, JSON.stringify(groups));
         }
     }, [groups, user]);
+
+    // Process recurring expenses (check daily)
+    useEffect(() => {
+        if (!user || groups.length === 0) return;
+
+        // Bugün zaten kontrol edildi mi?
+        if (wasCheckedToday()) {
+            console.log('[Recurring] Already checked today, skipping...');
+            return;
+        }
+
+        console.log('[Recurring] Checking for recurring expenses...');
+
+        // Tekrarlayan harcamaları işle
+        const createdCount = processRecurringExpenses(groups, handleAddExpense);
+
+        // Son kontrol tarihini güncelle
+        setLastCheckDate(new Date().toISOString());
+
+        if (createdCount > 0) {
+            setSuccessMessage(`✅ ${createdCount} tekrarlayan harcama otomatik oluşturuldu!`);
+            setTimeout(() => setSuccessMessage(''), 4000);
+        } else {
+            console.log('[Recurring] No expenses to create today.');
+        }
+    }, [user, groups]);
 
     useEffect(() => {
         if (successMessage) {
@@ -890,6 +919,7 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
     const [error, setError] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [showQRCode, setShowQRCode] = useState(false);
+    const [showRecurringExpenses, setShowRecurringExpenses] = useState(false);
 
     useEffect(() => {
         // Reset form when group changes, default paidBy to current user
@@ -1079,11 +1109,14 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                         </div>
                     </div>
                     <button className="share-button" onClick={handleShareSummary}>Özet Paylaş</button>
+                    <button className="secondary-button" onClick={() => setShowRecurringExpenses(true)} title="Tekrarlayan Harcamalar">
+                        🔁 Tekrarlayan
+                    </button>
                     <div className="export-button">
                         Dışa Aktar
                         <div className="export-options">
-                            <button onClick={() => alert('Grup özeti Excel\'e aktarıldı (simülasyon).')}>Excel'e Aktar (.xlsx)</button>
-                            <button onClick={() => alert('Grup özeti PDF olarak kaydedildi (simülasyon).')}>PDF Olarak Kaydet</button>
+                            <button onClick={() => exportGroupToExcel(group)}>📊 Excel'e Aktar (.xlsx)</button>
+                            <button onClick={() => alert('PDF export özelliği yakında eklenecek!')}>📄 PDF Olarak Kaydet</button>
                         </div>
                     </div>
                 </div>
@@ -1215,6 +1248,13 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                     groupId={group.id}
                     groupName={group.name}
                     onClose={() => setShowQRCode(false)}
+                />
+            )}
+            {showRecurringExpenses && (
+                <RecurringExpenses
+                    group={group}
+                    currentUser={currentUser}
+                    onClose={() => setShowRecurringExpenses(false)}
                 />
             )}
         </div>
@@ -1438,6 +1478,9 @@ function AnalyticsScreen({ groups, currentUser, onNavigate, setShowAIAdvisor }) 
             <div className="detail-header">
                 <h2>İstatistikler ({currentUser.name})</h2>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button onClick={() => exportAllGroupsToExcel(groups)} className="secondary-button" style={{ fontSize: '0.9rem' }}>
+                        📊 Tüm Grupları Export Et
+                    </button>
                     <button onClick={() => setShowAIAdvisor(true)} className="cta-button" style={{ fontSize: '0.9rem' }}>
                         🤖 AI Danışman
                     </button>
