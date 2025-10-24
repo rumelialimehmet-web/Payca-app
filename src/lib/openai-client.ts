@@ -1,20 +1,20 @@
 /**
- * OpenAI ChatGPT Client - Reliable AI Integration
+ * OpenAI ChatGPT Client - Secure AI Integration via Supabase Edge Functions
  * Using GPT-4o for vision (receipt scanning) and GPT-4o-mini for text (financial advice)
+ *
+ * SECURITY: API calls are proxied through Supabase Edge Functions to keep API keys secure
  */
 
-import OpenAI from 'openai';
+import { supabase } from './supabase';
 
-const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || import.meta.env.OPENAI_API_KEY;
+const USE_EDGE_FUNCTION = true; // Set to false for local development with direct API access
+const EDGE_FUNCTION_URL = import.meta.env.VITE_SUPABASE_URL
+    ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`
+    : null;
 
-if (!API_KEY) {
-    console.warn('⚠️ OpenAI API key not configured. AI features will be disabled.');
+if (!EDGE_FUNCTION_URL && USE_EDGE_FUNCTION) {
+    console.warn('⚠️ Supabase URL not configured. AI features will be disabled.');
 }
-
-export const openai = API_KEY ? new OpenAI({
-    apiKey: API_KEY,
-    dangerouslyAllowBrowser: true // For client-side usage
-}) : null;
 
 /**
  * Scan receipt using GPT-4o Vision
@@ -32,15 +32,15 @@ export async function scanReceipt(imageData: string): Promise<{
     };
     error?: string;
 }> {
-    if (!openai) {
+    if (!EDGE_FUNCTION_URL) {
         return {
             success: false,
-            error: 'OpenAI API key not configured. Please add VITE_OPENAI_API_KEY to your environment.',
+            error: 'AI özelliği yapılandırılmamış. Lütfen yöneticinizle iletişime geçin.',
         };
     }
 
     try {
-        console.log('[OpenAI] Scanning receipt with GPT-4o Vision...');
+        console.log('[OpenAI Proxy] Scanning receipt via secure Edge Function...');
 
         // Ensure image data has proper data URL format
         let formattedImageData = imageData;
@@ -48,100 +48,41 @@ export async function scanReceipt(imageData: string): Promise<{
             formattedImageData = `data:image/jpeg;base64,${imageData}`;
         }
 
-        console.log('[OpenAI] Image data format:', formattedImageData.substring(0, 50) + '...');
-        console.log('[OpenAI] Image data length:', formattedImageData.length);
+        console.log('[OpenAI Proxy] Image data length:', formattedImageData.length);
 
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o',
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'text',
-                            text: `You are a receipt OCR scanner. Analyze this receipt image and extract the following information in JSON format:
-
-{
-  "amount": <total amount as number>,
-  "date": <date in YYYY-MM-DD format>,
-  "merchantName": <store/restaurant name>,
-  "category": <one of: "food", "transport", "entertainment", "bills", "other">,
-  "items": [
-    { "name": "<item name>", "price": <price as number> }
-  ]
-}
-
-Rules:
-1. Only return valid JSON, no markdown formatting
-2. If you can't find a field, use null
-3. Amount and prices should be numbers (no currency symbols)
-4. Category should be your best guess based on merchant name
-5. If receipt is in Turkish, keep merchant and item names in Turkish
-6. Parse common Turkish receipt formats (Migros, A101, BIM, CarrefourSA, etc.)
-
-Example Turkish receipt categories:
-- Supermarket/Market → "food"
-- Restaurant/Café → "food"
-- Taxi/Uber/Bus → "transport"
-- Cinema/Concert → "entertainment"
-- Electricity/Water/Internet → "bills"`
-                        },
-                        {
-                            type: 'image_url',
-                            image_url: {
-                                url: formattedImageData
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens: 1000,
-            temperature: 0.2
-        });
-
-        console.log('[OpenAI] API Response received:', response);
-
-        const text = response.choices[0]?.message?.content;
-        if (!text) {
-            console.error('[OpenAI] No content in response:', response);
-            throw new Error('No response from OpenAI');
+        // Get current session token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            throw new Error('Lütfen önce giriş yapın');
         }
 
-        console.log('[OpenAI] Receipt scan response:', text);
-
-        // Parse JSON from response (remove markdown if present)
-        let jsonText = text.trim();
-        jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-        console.log('[OpenAI] Parsing JSON:', jsonText);
-
-        const receiptData = JSON.parse(jsonText);
-
-        console.log('[OpenAI] Parsed receipt data:', receiptData);
-
-        return {
-            success: true,
-            data: receiptData,
-        };
-    } catch (error: any) {
-        console.error('[OpenAI] Receipt scanning error:', error);
-        console.error('[OpenAI] Error details:', {
-            message: error.message,
-            status: error.status,
-            type: error.type,
-            response: error.response
+        // Call Supabase Edge Function
+        const { data, error } = await supabase.functions.invoke('openai-proxy', {
+            body: {
+                type: 'scan-receipt',
+                imageData: formattedImageData
+            }
         });
 
-        // More specific error messages
-        let errorMessage = 'Failed to scan receipt. Please try again.';
-        if (error.status === 401) {
-            errorMessage = 'API key hatası. Lütfen API key\'inizi kontrol edin.';
-        } else if (error.status === 429) {
-            errorMessage = 'Çok fazla istek. Lütfen birkaç saniye bekleyin.';
-        } else if (error.status === 400) {
-            errorMessage = 'Resim formatı hatalı. Lütfen farklı bir resim deneyin.';
-        } else if (error.message) {
+        if (error) {
+            console.error('[OpenAI Proxy] Error:', error);
+            throw new Error(error.message || 'Fatura tarama başarısız oldu');
+        }
+
+        console.log('[OpenAI Proxy] Receipt scanned successfully');
+
+        return data;
+    } catch (error: any) {
+        console.error('[OpenAI Proxy] Receipt scanning error:', error);
+
+        // User-friendly error messages
+        let errorMessage = 'Fatura tarama başarısız oldu. Lütfen tekrar deneyin.';
+        if (error.message?.includes('giriş')) {
             errorMessage = error.message;
+        } else if (error.message?.includes('quota')) {
+            errorMessage = 'AI servisi kotası dolmuş. Lütfen daha sonra tekrar deneyin.';
+        } else if (error.message?.includes('network')) {
+            errorMessage = 'İnternet bağlantısı hatası. Bağlantınızı kontrol edin.';
         }
 
         return {
@@ -161,73 +102,50 @@ export async function getFinancialAdvice(
     groups: any[],
     userId: string
 ): Promise<{ success: boolean; advice?: string; error?: string }> {
-    if (!openai) {
+    if (!EDGE_FUNCTION_URL) {
         return {
             success: false,
-            error: 'OpenAI API key not configured.',
+            error: 'AI özelliği yapılandırılmamış.',
         };
     }
 
     try {
-        // Calculate total spending and category breakdown
-        let totalSpending = 0;
-        const categorySpending: Record<string, number> = {};
+        console.log('[OpenAI Proxy] Getting financial advice via secure Edge Function...');
 
-        groups.forEach((group) => {
-            group.expenses?.forEach((expense: any) => {
-                totalSpending += expense.amount;
-                const category = expense.category || 'other';
-                categorySpending[category] = (categorySpending[category] || 0) + expense.amount;
-            });
-        });
-
-        console.log('[OpenAI] Getting financial advice with GPT-4o-mini...');
-
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a friendly financial advisor for a Turkish expense tracking app called Payça. Always respond in Turkish with friendly, conversational language.'
-                },
-                {
-                    role: 'user',
-                    content: `Kullanıcının harcama özeti:
-- Toplam harcama: ₺${totalSpending.toFixed(2)}
-- Kategori dağılımı: ${JSON.stringify(categorySpending, null, 2)}
-- Grup sayısı: ${groups.length}
-
-Lütfen kişiselleştirilmiş finansal tavsiye ver:
-1. Harcama alışkanlıklarını analiz et
-2. Tasarruf edebilecekleri alanları belirle
-3. 2-3 uygulanabilir ipucu ver
-4. Teşvik edici ve pozitif ol
-5. Kısa ve öz tut (maksimum 200 kelime)
-6. Samimi, sohbet havası kullan
-
-Resmi bir rapor değil, arkadaşça bir mesaj formatında yanıt ver.`
-                }
-            ],
-            max_tokens: 500,
-            temperature: 0.7
-        });
-
-        const advice = response.choices[0]?.message?.content;
-        if (!advice) {
-            throw new Error('No response from OpenAI');
+        // Get current session token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            throw new Error('Lütfen önce giriş yapın');
         }
 
-        console.log('[OpenAI] Financial advice received');
+        // Call Supabase Edge Function
+        const { data, error } = await supabase.functions.invoke('openai-proxy', {
+            body: {
+                type: 'financial-advice',
+                groups,
+                userId
+            }
+        });
+
+        if (error) {
+            console.error('[OpenAI Proxy] Error:', error);
+            throw new Error(error.message || 'Finansal danışmanlık başarısız oldu');
+        }
+
+        console.log('[OpenAI Proxy] Financial advice received');
+
+        return data;
+    } catch (error: any) {
+        console.error('[OpenAI Proxy] Financial advice error:', error);
+
+        let errorMessage = 'Finansal danışmanlık başarısız oldu. Lütfen tekrar deneyin.';
+        if (error.message?.includes('giriş')) {
+            errorMessage = error.message;
+        }
 
         return {
-            success: true,
-            advice: advice.trim(),
-        };
-    } catch (error: any) {
-        console.error('[OpenAI] Financial advice error:', error);
-        return {
             success: false,
-            error: error.message || 'Failed to generate advice.',
+            error: errorMessage,
         };
     }
 }

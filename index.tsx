@@ -1,14 +1,25 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useGroups } from './src/hooks/useGroups';
 import { QRCodeSVG } from 'qrcode.react';
-import { ReceiptScanner } from './src/components/ReceiptScanner';
-import { AIAdvisor } from './src/components/AIAdvisor';
-import { RecurringExpenses } from './src/components/RecurringExpenses';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { exportGroupToExcel, exportAllGroupsToExcel } from './src/lib/excel-export';
 import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './src/lib/recurring-utils';
+
+// Lazy load heavy components for better performance
+const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
+const AIAdvisor = lazy(() => import('./src/components/AIAdvisor').then(m => ({ default: m.AIAdvisor })));
+const RecurringExpenses = lazy(() => import('./src/components/RecurringExpenses').then(m => ({ default: m.RecurringExpenses })));
+
+// Loading spinner component
+const LoadingSpinner = () => (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
+        <div className="spinner"></div>
+        <span style={{ marginLeft: '12px' }}>Yükleniyor...</span>
+    </div>
+);
 
 // --- HELPER FUNCTIONS ---
 const formatCurrency = (amount) => {
@@ -599,19 +610,23 @@ function App() {
 
             {/* Receipt Scanner Modal */}
             {showReceiptScanner && (
-                <ReceiptScanner
-                    onClose={() => setShowReceiptScanner(false)}
-                    onScanComplete={handleReceiptScanComplete}
-                />
+                <Suspense fallback={<LoadingSpinner />}>
+                    <ReceiptScanner
+                        onClose={() => setShowReceiptScanner(false)}
+                        onScanComplete={handleReceiptScanComplete}
+                    />
+                </Suspense>
             )}
 
             {/* AI Financial Advisor Modal */}
             {showAIAdvisor && (
-                <AIAdvisor
-                    groups={groups}
-                    userId={user.id}
-                    onClose={() => setShowAIAdvisor(false)}
-                />
+                <Suspense fallback={<LoadingSpinner />}>
+                    <AIAdvisor
+                        groups={groups}
+                        userId={user.id}
+                        onClose={() => setShowAIAdvisor(false)}
+                    />
+                </Suspense>
             )}
 
             <AppFooter />
@@ -1251,11 +1266,13 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                 />
             )}
             {showRecurringExpenses && (
-                <RecurringExpenses
-                    group={group}
-                    currentUser={currentUser}
-                    onClose={() => setShowRecurringExpenses(false)}
-                />
+                <Suspense fallback={<LoadingSpinner />}>
+                    <RecurringExpenses
+                        group={group}
+                        currentUser={currentUser}
+                        onClose={() => setShowRecurringExpenses(false)}
+                    />
+                </Suspense>
             )}
         </div>
     );
@@ -1785,9 +1802,11 @@ if (rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(
         <React.StrictMode>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
+            <ErrorBoundary>
+                <AuthProvider>
+                    <App />
+                </AuthProvider>
+            </ErrorBoundary>
         </React.StrictMode>
     );
 }
