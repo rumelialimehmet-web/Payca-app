@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getFinancialAdvice } from '../lib/openai-client';
+import { getFinancialAdvice } from '../lib/gemini-client';
 
 interface AIAdvisorProps {
     groups: any[];

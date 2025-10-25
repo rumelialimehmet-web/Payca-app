@@ -29,6 +29,36 @@ const formatCurrency = (amount) => {
     }).format(amount);
 };
 
+const getCategoryEmoji = (category) => {
+    const categoryMap = {
+        food: '🍔',
+        transportation: '🚗',
+        bills: '💡',
+        rent: '🏠',
+        entertainment: '🎬',
+        shopping: '🛍️',
+        health: '🏥',
+        education: '📚',
+        other: '📦'
+    };
+    return categoryMap[category] || '📦';
+};
+
+const getCategoryName = (category) => {
+    const categoryNames = {
+        food: 'Yemek',
+        transportation: 'Ulaşım',
+        bills: 'Faturalar',
+        rent: 'Kira',
+        entertainment: 'Eğlence',
+        shopping: 'Alışveriş',
+        health: 'Sağlık',
+        education: 'Eğitim',
+        other: 'Diğer'
+    };
+    return categoryNames[category] || 'Diğer'
+};
+
 const formatDate = (dateString) => {
     const date = new Date(dateString);
     return new Intl.DateTimeFormat('tr-TR', {
@@ -381,8 +411,8 @@ function App() {
         setSuccessMessage("Profil başarıyla güncellendi!");
     }
 
-    const handleThemeToggle = () => {
-        setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
+    const handleThemeChange = (newTheme) => {
+        setTheme(newTheme);
     };
 
     const handleResetData = () => {
@@ -542,7 +572,7 @@ function App() {
             case 'analytics':
                 return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} setShowAIAdvisor={setShowAIAdvisor} />;
             case 'settings':
-                return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} />;
+                return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} theme={theme} onThemeChange={handleThemeChange} />;
             case 'dashboard':
             default:
                 return groups.length > 0
@@ -555,7 +585,7 @@ function App() {
         <div className="container">
             {showInstallPrompt && <InstallPwaPrompt onInstall={handleInstallClick} onDismiss={() => setShowInstallPrompt(false)} isIOS={isIOS} hasInstallEvent={!!installPromptEvent} />}
             {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
-            {showHelpFeedbackModal && <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => setShowHelpFeedbackModal(false)} onResetData={handleResetData} onLogout={handleLogout} />}
+            {showHelpFeedbackModal && <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => setShowHelpFeedbackModal(false)} onResetData={handleResetData} onLogout={handleLogout} theme={theme} onThemeChange={handleThemeChange} />}
 
             <header className="app-header">
                 <div className="logo" onClick={() => handleNavigate('dashboard')}>
@@ -584,10 +614,7 @@ function App() {
                     <button className="secondary-button" onClick={() => setShowReceiptScanner(true)} title="Fatura Tara">📷 Fatura Tara</button>
                     <button className="secondary-button" onClick={() => setShowAIAdvisor(true)} title="AI Finansal Danışman">🤖 AI Danışman</button>
                     <button className="secondary-button" onClick={() => handleNavigate('analytics')}>İstatistikler</button>
-                    <button className="secondary-button" onClick={() => setShowHelpFeedbackModal(true)}>Yardım</button>
-                    <button className="theme-toggle-button" onClick={handleThemeToggle} title="Temayı Değiştir">
-                        {theme === 'dark' ? '☀️' : '🌙'}
-                    </button>
+                    <button className="secondary-button" onClick={() => setShowHelpFeedbackModal(true)}>⚙️ Ayarlar</button>
                     <button className="secondary-button" onClick={handleLogout} style={{ background: 'var(--danger-color)', color: 'white' }}>Çıkış Yap</button>
                 </div>
             </header>
@@ -930,7 +957,14 @@ function CameraScanner({ onScanComplete, onCancel }) {
 }
 
 function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
-    const [newExpense, setNewExpense] = useState({ description: '', amount: '', paidBy: currentUser.id || '', splitType: 'equal', splits: [] });
+    const [newExpense, setNewExpense] = useState({
+        description: '',
+        amount: '',
+        paidBy: currentUser.id || '',
+        splitType: 'equal',
+        splits: [],
+        category: 'other' // Default category
+    });
     const [error, setError] = useState('');
     const [isScanning, setIsScanning] = useState(false);
     const [showQRCode, setShowQRCode] = useState(false);
@@ -943,7 +977,8 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
             amount: '',
             paidBy: currentUser.id || '',
             splitType: 'equal',
-            splits: []
+            splits: [],
+            category: 'other'
         });
     }, [group, currentUser.id]);
 
@@ -1152,6 +1187,20 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                             <input type="text" id="description" name="description" placeholder="Market alışverişi" value={newExpense.description} onChange={handleInputChange} />
                         </div>
                         <div className="form-group">
+                            <label htmlFor="category">Kategori</label>
+                            <select id="category" name="category" value={newExpense.category} onChange={handleInputChange}>
+                                <option value="food">🍔 Yemek</option>
+                                <option value="transportation">🚗 Ulaşım</option>
+                                <option value="bills">💡 Faturalar</option>
+                                <option value="rent">🏠 Kira</option>
+                                <option value="entertainment">🎬 Eğlence</option>
+                                <option value="shopping">🛍️ Alışveriş</option>
+                                <option value="health">🏥 Sağlık</option>
+                                <option value="education">📚 Eğitim</option>
+                                <option value="other">📦 Diğer</option>
+                            </select>
+                        </div>
+                        <div className="form-group">
                             <label htmlFor="amount">Tutar</label>
                             <input type="number" id="amount" name="amount" placeholder="0,00" value={newExpense.amount} onChange={handleInputChange} step="0.01" />
                         </div>
@@ -1246,9 +1295,12 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
                             {group.expenses.slice().reverse().map(expense => (
                                 <li key={expense.id} className="expense-item">
                                     <div className="expense-info">
-                                        <p>{expense.description}</p>
+                                        <p>
+                                            <span style={{ marginRight: '8px' }}>{getCategoryEmoji(expense.category || 'other')}</span>
+                                            {expense.description}
+                                        </p>
                                         <p className="date">
-                                            {group.members.find(m => m.id === expense.paidBy)?.name} ödedi - {formatDate(expense.date)}
+                                            {group.members.find(m => m.id === expense.paidBy)?.name} ödedi • {getCategoryName(expense.category || 'other')} • {formatDate(expense.date)}
                                         </p>
                                     </div>
                                     <span className="expense-amount">{formatCurrency(expense.amount)}</span>
@@ -1619,7 +1671,7 @@ function OnboardingModal({ onComplete }) {
     );
 }
 
-function HelpFeedbackModal({ user, onUpdateUser, onClose, onResetData, onLogout }) {
+function HelpFeedbackModal({ user, onUpdateUser, onClose, onResetData, onLogout, theme, onThemeChange }) {
     const [activeTab, setActiveTab] = useState('help');
     const [rating, setRating] = useState(0);
     const [feedback, setFeedback] = useState('');
@@ -1692,6 +1744,51 @@ function HelpFeedbackModal({ user, onUpdateUser, onClose, onResetData, onLogout 
                             </div>
                             <button type="submit" className="form-button">Kaydet</button>
                         </form>
+                        <div style={{marginTop: '24px'}}>
+                            <h4 style={{marginBottom: '12px'}}>Tema Seçimi</h4>
+                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px'}}>
+                                <button
+                                    type="button"
+                                    onClick={() => onThemeChange('light')}
+                                    className={`theme-option ${theme === 'light' ? 'active' : ''}`}
+                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'light' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
+                                >
+                                    ☀️ Açık
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onThemeChange('dark')}
+                                    className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
+                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'dark' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
+                                >
+                                    🌙 Koyu
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onThemeChange('midnight')}
+                                    className={`theme-option ${theme === 'midnight' ? 'active' : ''}`}
+                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'midnight' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
+                                >
+                                    🌃 Gece Yarısı
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onThemeChange('sepia')}
+                                    className={`theme-option ${theme === 'sepia' ? 'active' : ''}`}
+                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'sepia' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
+                                >
+                                    📜 Sepya
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onThemeChange('forest')}
+                                    className={`theme-option ${theme === 'forest' ? 'active' : ''}`}
+                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'forest' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
+                                >
+                                    🌲 Orman
+                                </button>
+                            </div>
+                        </div>
                         <div style={{marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px'}}>
                             <h4>Tehlikeli Alan</h4>
                             <button onClick={onResetData} className="form-button" style={{background: 'var(--danger-color)', width: '100%', marginBottom: '12px'}}>Tüm Verileri Sıfırla</button>
