@@ -1948,3 +1948,147 @@ html {
         grid-template-columns: 1fr;
     }
 }
+
+/* ====================================
+   FORM VALIDATION STYLES
+   ==================================== */
+
+/* Input field states */
+.form-group input[aria-invalid="true"],
+.form-group select[aria-invalid="true"],
+.form-group textarea[aria-invalid="true"] {
+    border-color: var(--danger-color) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-group input:focus[aria-invalid="true"],
+.form-group select:focus[aria-invalid="true"],
+.form-group textarea:focus[aria-invalid="true"] {
+    outline: none;
+    border-color: var(--danger-color) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.form-group input[aria-invalid="false"]:not(:placeholder-shown),
+.form-group select[aria-invalid="false"]:not(:placeholder-shown),
+.form-group textarea[aria-invalid="false"]:not(:placeholder-shown) {
+    border-color: var(--success-color);
+}
+
+/* Error message */
+.field-error {
+    color: var(--danger-color);
+    font-size: 0.875rem;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: slideIn 0.2s ease-out;
+}
+
+.field-error::before {
+    content: "⚠";
+    font-size: 1rem;
+}
+
+/* Success message */
+.field-success {
+    color: var(--success-color);
+    font-size: 0.875rem;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.field-success::before {
+    content: "✓";
+    font-weight: bold;
+}
+
+/* Field hint/helper text */
+.field-hint {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-top: 4px;
+}
+
+/* Slide in animation for error messages */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading state for form buttons */
+.form-button:disabled,
+.cta-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    position: relative;
+}
+
+.form-button:disabled::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Required field indicator */
+.form-group label.required::after {
+    content: " *";
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+/* Form field with icon */
+.input-with-icon {
+    position: relative;
+}
+
+.input-with-icon input {
+    padding-left: 40px;
+}
+
+.input-with-icon .icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+/* Character count */
+.character-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: 4px;
+}
+
+.character-count.warning {
+    color: var(--warning-color);
+}
+
+.character-count.error {
+    color: var(--danger-color);
+}
