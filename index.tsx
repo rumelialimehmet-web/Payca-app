@@ -7,6 +7,8 @@ import { QRCodeSVG } from 'qrcode.react';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { exportGroupToExcel, exportAllGroupsToExcel } from './src/lib/excel-export';
 import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './src/lib/recurring-utils';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -1902,6 +1904,8 @@ if (rootElement) {
             <ErrorBoundary>
                 <AuthProvider>
                     <App />
+                    <Analytics />
+                    <SpeedInsights />
                 </AuthProvider>
             </ErrorBoundary>
         </React.StrictMode>
