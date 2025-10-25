@@ -2092,3 +2092,37 @@ html {
 .character-count.error {
     color: var(--danger-color);
 }
+
+/* ====================================
+   ADDITIONAL THEMES
+   ==================================== */
+
+/* Midnight Theme */
+body[data-theme='midnight'] {
+    --bg-color: #0a0e27;
+    --surface-color: #151b3d;
+    --surface-color-light: #1f2748;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --border-color: #1f2748;
+}
+
+/* Sepia Theme */
+body[data-theme='sepia'] {
+    --bg-color: #f4f1ea;
+    --surface-color: #faf8f3;
+    --surface-color-light: #f0ebe0;
+    --text-primary: #5c4a3a;
+    --text-secondary: #8b7961;
+    --border-color: #d4c4b0;
+}
+
+/* Forest Green Theme */
+body[data-theme='forest'] {
+    --bg-color: #0f1e0e;
+    --surface-color: #1a2f1a;
+    --surface-color-light: #254025;
+    --text-primary: #e8f5e8;
+    --text-secondary: #a8c5a8;
+    --border-color: #254025;
+}
