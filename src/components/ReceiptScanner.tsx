@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { scanReceipt } from '../lib/openai-client';
+import { scanReceipt } from '../lib/gemini-client';
 
 interface ReceiptScannerProps {
     onClose: () => void;
