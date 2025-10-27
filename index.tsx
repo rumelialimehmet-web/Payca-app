@@ -10,6 +10,7 @@ import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './s
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ModernHomepage } from './src/components/ModernHomepage';
+import { ModernGroupDetail } from './src/components/ModernGroupDetail';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -569,7 +570,21 @@ function App() {
             case 'createGroup':
                 return <CreateGroupScreen onCreateGroup={handleCreateGroup} onNavigate={handleNavigate} />;
             case 'groupDetail':
-                return <GroupDetail group={selectedGroup} onNavigate={handleNavigate} onAddExpense={handleAddExpense} currentUser={user} />;
+                return (
+                    <ModernGroupDetail
+                        group={selectedGroup}
+                        currentUser={user}
+                        onBack={() => handleNavigate('dashboard')}
+                        onSettings={() => handleNavigate('settings')}
+                        onAddExpense={() => handleAddExpense(selectedGroup.id, {})}
+                        onExpenseClick={(expenseId) => {
+                            // TODO: Show expense detail modal
+                            console.log('Expense clicked:', expenseId);
+                        }}
+                        activeBottomTab={activeTab}
+                        onTabChange={setActiveTab}
+                    />
+                );
             case 'settlement':
                 return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} />;
             case 'analytics':
