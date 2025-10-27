@@ -13,6 +13,7 @@ import { ModernHomepage } from './src/components/ModernHomepage';
 import { ModernGroupDetail } from './src/components/ModernGroupDetail';
 import { ModernExpenseForm } from './src/components/ModernExpenseForm';
 import { ModernSettings } from './src/components/ModernSettings';
+import { ModernGroupCreationModal } from './src/components/ModernGroupCreationModal';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -583,7 +584,25 @@ function App() {
         }
         switch (currentView) {
             case 'createGroup':
-                return <CreateGroupScreen onCreateGroup={handleCreateGroup} onNavigate={handleNavigate} />;
+                return (
+                    <ModernGroupCreationModal
+                        currentUser={user}
+                        onCreateGroup={(groupData) => {
+                            const newGroup = {
+                                id: Date.now(),
+                                name: groupData.name,
+                                description: groupData.description || '',
+                                currency: groupData.currency === 'TRY' ? '₺' : groupData.currency === 'USD' ? '$' : '€',
+                                type: 'Genel',
+                                icon: groupData.icon,
+                                members: groupData.members.map(m => ({ ...m, id: m.id.startsWith('temp-') ? Date.now() + Math.random() : m.id })),
+                                expenses: []
+                            };
+                            handleCreateGroup(newGroup);
+                        }}
+                        onClose={() => handleNavigate('dashboard')}
+                    />
+                );
             case 'addExpense':
                 return (
                     <ModernExpenseForm
