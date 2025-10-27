@@ -12,6 +12,8 @@ import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ModernHomepage } from './src/components/ModernHomepage';
 import { ModernGroupDetail } from './src/components/ModernGroupDetail';
 import { ModernExpenseForm } from './src/components/ModernExpenseForm';
+import { ModernSettings } from './src/components/ModernSettings';
+import { ModernGroupCreationModal } from './src/components/ModernGroupCreationModal';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -582,7 +584,25 @@ function App() {
         }
         switch (currentView) {
             case 'createGroup':
-                return <CreateGroupScreen onCreateGroup={handleCreateGroup} onNavigate={handleNavigate} />;
+                return (
+                    <ModernGroupCreationModal
+                        currentUser={user}
+                        onCreateGroup={(groupData) => {
+                            const newGroup = {
+                                id: Date.now(),
+                                name: groupData.name,
+                                description: groupData.description || '',
+                                currency: groupData.currency === 'TRY' ? '₺' : groupData.currency === 'USD' ? '$' : '€',
+                                type: 'Genel',
+                                icon: groupData.icon,
+                                members: groupData.members.map(m => ({ ...m, id: m.id.startsWith('temp-') ? Date.now() + Math.random() : m.id })),
+                                expenses: []
+                            };
+                            handleCreateGroup(newGroup);
+                        }}
+                        onClose={() => handleNavigate('dashboard')}
+                    />
+                );
             case 'addExpense':
                 return (
                     <ModernExpenseForm
@@ -617,7 +637,28 @@ function App() {
             case 'analytics':
                 return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} setShowAIAdvisor={setShowAIAdvisor} />;
             case 'settings':
-                return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} theme={theme} onThemeChange={handleThemeChange} />;
+                // Calculate stats for settings page
+                const totalExpenses = groups.reduce((sum, group) => sum + (group.expenses?.length || 0), 0);
+                const uniqueFriends = new Set(
+                    groups.flatMap(group => group.members.map(m => m.id))
+                ).size - 1; // Subtract current user
+
+                return (
+                    <ModernSettings
+                        user={user}
+                        stats={{
+                            expenses: totalExpenses,
+                            groups: groups.length,
+                            friends: uniqueFriends
+                        }}
+                        theme={theme}
+                        onThemeChange={handleThemeChange}
+                        onLogout={handleLogout}
+                        onBack={() => handleNavigate('dashboard')}
+                        activeBottomTab={activeTab}
+                        onTabChange={setActiveTab}
+                    />
+                );
             case 'dashboard':
             default:
                 return (
