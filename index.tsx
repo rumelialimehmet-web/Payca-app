@@ -11,6 +11,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { ModernHomepage } from './src/components/ModernHomepage';
 import { ModernGroupDetail } from './src/components/ModernGroupDetail';
+import { ModernExpenseForm } from './src/components/ModernExpenseForm';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -470,7 +471,20 @@ function App() {
         setGroups(prevGroups => prevGroups.map(group => {
             if (group.id === groupId) {
                 const newId = group.expenses.length > 0 ? Math.max(...group.expenses.map(e => e.id)) + 1 : 1;
-                return { ...group, expenses: [...group.expenses, { ...newExpense, id: newId, date: new Date().toISOString() }] };
+                const expenseToAdd = {
+                    ...newExpense,
+                    id: newId,
+                    date: newExpense.date ? newExpense.date.toISOString() : new Date().toISOString(),
+                    // Ensure splitType and splits are properly set
+                    splitType: newExpense.splitType || 'equal',
+                    splits: newExpense.customSplits && newExpense.splitType === 'custom'
+                        ? newExpense.selectedMembers.map(memberId => ({
+                            memberId,
+                            amount: newExpense.customSplits[memberId] || 0
+                        }))
+                        : []
+                };
+                return { ...group, expenses: [...group.expenses, expenseToAdd] };
             }
             return group;
         }));
@@ -562,13 +576,26 @@ function App() {
     };
 
     const renderContent = () => {
-        if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement')) {
+        if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement' || currentView === 'addExpense')) {
             handleNavigate('dashboard');
             return null;
         }
         switch (currentView) {
             case 'createGroup':
                 return <CreateGroupScreen onCreateGroup={handleCreateGroup} onNavigate={handleNavigate} />;
+            case 'addExpense':
+                return (
+                    <ModernExpenseForm
+                        groupId={selectedGroup.id}
+                        members={selectedGroup.members}
+                        currentUser={user}
+                        onSave={(expenseData) => {
+                            handleAddExpense(selectedGroup.id, expenseData);
+                            handleNavigate('groupDetail', selectedGroup.id);
+                        }}
+                        onCancel={() => handleNavigate('groupDetail', selectedGroup.id)}
+                    />
+                );
             case 'groupDetail':
                 return (
                     <ModernGroupDetail
@@ -576,7 +603,7 @@ function App() {
                         currentUser={user}
                         onBack={() => handleNavigate('dashboard')}
                         onSettings={() => handleNavigate('settings')}
-                        onAddExpense={() => handleAddExpense(selectedGroup.id, {})}
+                        onAddExpense={() => handleNavigate('addExpense', selectedGroup.id)}
                         onExpenseClick={(expenseId) => {
                             // TODO: Show expense detail modal
                             console.log('Expense clicked:', expenseId);
@@ -601,7 +628,7 @@ function App() {
                         onCreateGroup={() => handleNavigate('createGroup')}
                         onAddExpense={() => {
                             if (groups.length > 0) {
-                                handleNavigate('groupDetail', groups[0].id);
+                                handleNavigate('addExpense', groups[0].id);
                             } else {
                                 handleNavigate('createGroup');
                             }
