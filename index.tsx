@@ -9,6 +9,7 @@ import { exportGroupToExcel, exportAllGroupsToExcel } from './src/lib/excel-expo
 import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './src/lib/recurring-utils';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
+import { ModernHomepage } from './src/components/ModernHomepage';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -577,9 +578,24 @@ function App() {
                 return <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => handleNavigate('dashboard')} onResetData={handleResetData} onLogout={handleLogout} theme={theme} onThemeChange={handleThemeChange} />;
             case 'dashboard':
             default:
-                return groups.length > 0
-                    ? <GroupsList groups={groups} onSelectGroup={(id) => handleNavigate('groupDetail', id)} />
-                    : <WelcomeScreen onCreateGroup={() => handleNavigate('createGroup')} />;
+                return (
+                    <ModernHomepage
+                        user={user}
+                        groups={groups}
+                        onSelectGroup={(id) => handleNavigate('groupDetail', id)}
+                        onCreateGroup={() => handleNavigate('createGroup')}
+                        onAddExpense={() => {
+                            if (groups.length > 0) {
+                                handleNavigate('groupDetail', groups[0].id);
+                            } else {
+                                handleNavigate('createGroup');
+                            }
+                        }}
+                        onShowAllGroups={() => handleNavigate('analytics')}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                    />
+                );
         }
     };
 
