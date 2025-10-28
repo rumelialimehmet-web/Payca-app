@@ -14,6 +14,7 @@ import { ModernGroupDetail } from './src/components/ModernGroupDetail';
 import { ModernExpenseForm } from './src/components/ModernExpenseForm';
 import { ModernSettings } from './src/components/ModernSettings';
 import { ModernGroupCreationModal } from './src/components/ModernGroupCreationModal';
+import ModernPaymentDetail from './src/components/ModernPaymentDetail';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -216,6 +217,7 @@ function App() {
     const [groups, setGroups] = useState([]);
     const [currentView, setCurrentView] = useState('dashboard');
     const [selectedGroupId, setSelectedGroupId] = useState(null);
+    const [selectedPayment, setSelectedPayment] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [showInstallPrompt, setShowInstallPrompt] = useState(false);
@@ -578,7 +580,7 @@ function App() {
     };
 
     const renderContent = () => {
-        if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement' || currentView === 'addExpense')) {
+        if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement' || currentView === 'addExpense' || currentView === 'paymentDetail')) {
             handleNavigate('dashboard');
             return null;
         }
@@ -633,7 +635,31 @@ function App() {
                     />
                 );
             case 'settlement':
-                return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} />;
+                return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} onPaymentClick={(payment) => {
+                    setSelectedPayment(payment);
+                    handleNavigate('paymentDetail');
+                }} />;
+            case 'paymentDetail':
+                if (!selectedPayment) {
+                    handleNavigate('settlement', selectedGroupId);
+                    return null;
+                }
+                return (
+                    <ModernPaymentDetail
+                        payment={selectedPayment}
+                        onBack={() => handleNavigate('settlement', selectedGroupId)}
+                        onConfirm={() => {
+                            // TODO: Mark payment as completed in database
+                            setSuccessMessage('Ödeme onaylandı!');
+                            handleNavigate('settlement', selectedGroupId);
+                        }}
+                        onCancel={() => {
+                            // TODO: Cancel payment in database
+                            setSuccessMessage('Ödeme iptal edildi.');
+                            handleNavigate('settlement', selectedGroupId);
+                        }}
+                    />
+                );
             case 'analytics':
                 return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} setShowAIAdvisor={setShowAIAdvisor} />;
             case 'settings':
@@ -1431,7 +1457,7 @@ function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
     );
 }
 
-function SettlementScreen({ group, onNavigate }) {
+function SettlementScreen({ group, onNavigate, onPaymentClick }) {
     const balances = useMemo(() => {
         // FIX: Add type annotation to `memberBalances` to ensure correct type inference for `balances`.
         const memberBalances: { [key: string]: { id: number; name: string; balance: number } } = {};
@@ -1487,7 +1513,26 @@ function SettlementScreen({ group, onNavigate }) {
                 {settlements.length === 0 ?
                     <div className="detail-card" style={{ textAlign: 'center' }}>Tüm hesaplar eşit, ödenecek borç bulunmuyor.</div> :
                     settlements.map((s, index) => (
-                        <div className={`settlement-card ${completedPayments[index] ? 'completed' : ''}`} key={index}>
+                        <div
+                            className={`settlement-card ${completedPayments[index] ? 'completed' : ''}`}
+                            key={index}
+                            onClick={() => {
+                                if (onPaymentClick) {
+                                    const payment = {
+                                        id: `payment-${group.id}-${index}`,
+                                        amount: s.amount,
+                                        from: { id: s.from.id.toString(), name: s.from.name },
+                                        to: { id: s.to.id.toString(), name: s.to.name },
+                                        status: completedPayments[index] ? 'completed' : 'pending',
+                                        createdAt: new Date().toISOString(),
+                                        completedAt: completedPayments[index] ? new Date().toISOString() : undefined,
+                                        groupName: group.name,
+                                    };
+                                    onPaymentClick(payment);
+                                }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                        >
                             <div className="settlement-card-header">
                                 <div className="settlement-info">
                                     <span className="from">{s.from.name}</span>
@@ -1497,25 +1542,31 @@ function SettlementScreen({ group, onNavigate }) {
                                 </div>
                                 <button
                                     className={`action-button ${completedPayments[index] ? 'unpaid' : 'paid'}`}
-                                    onClick={() => handleMarkAsPaid(index)}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleMarkAsPaid(index);
+                                    }}
                                 >
                                     {completedPayments[index] ? 'Geri Al' : 'Ödendi'}
                                 </button>
                             </div>
                             {!completedPayments[index] &&
-                                <div className="settlement-actions">
+                                <div className="settlement-actions" onClick={(e) => e.stopPropagation()}>
                                     <button
                                         className="action-button whatsapp"
-                                        onClick={() => handleWhatsAppReminder(s.from.name, s.to.name, s.amount)}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleWhatsAppReminder(s.from.name, s.to.name, s.amount);
+                                        }}
                                     >
                                         WhatsApp ile Hatırlat
                                     </button>
                                     <div className="action-button other">
                                         Diğer Yöntemler
                                         <div className="payment-options">
-                                            <button onClick={() => alert('Papara ile ödeme simülasyonu.')}>Papara ile Öde</button>
-                                            <button onClick={() => alert('Banka transferi için QR kod oluşturuldu.')}>QR Kod Oluştur</button>
-                                            <button onClick={() => alert('IBAN bilgisi paylaşıldı.')}>IBAN Paylaş</button>
+                                            <button onClick={(e) => { e.stopPropagation(); alert('Papara ile ödeme simülasyonu.'); }}>Papara ile Öde</button>
+                                            <button onClick={(e) => { e.stopPropagation(); alert('Banka transferi için QR kod oluşturuldu.'); }}>QR Kod Oluştur</button>
+                                            <button onClick={(e) => { e.stopPropagation(); alert('IBAN bilgisi paylaşıldı.'); }}>IBAN Paylaş</button>
                                         </div>
                                     </div>
                                 </div>
