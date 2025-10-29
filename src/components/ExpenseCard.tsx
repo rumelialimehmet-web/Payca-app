@@ -15,6 +15,7 @@ export interface ExpenseCardProps {
   isUserOwed: boolean; // true = user paid and is owed, false = user owes
   category?: string;
   date?: string;
+  receiptUrl?: string | null;
   onClick?: () => void;
 }
 
@@ -29,6 +30,7 @@ export function ExpenseCard({
   isUserOwed,
   category,
   date,
+  receiptUrl,
   onClick
 }: ExpenseCardProps) {
   const getCategoryEmoji = (cat?: string) => {
@@ -69,6 +71,11 @@ export function ExpenseCard({
               className="size-5 rounded-full"
               src={paidBy.avatar}
             />
+          )}
+          {receiptUrl && (
+            <span className="material-symbols-outlined text-base text-blue-500" title="Fiş mevcut">
+              receipt
+            </span>
           )}
         </div>
       </div>

@@ -346,6 +346,85 @@ export const db = {
   },
 };
 
+// Storage operations for receipts
+export const storage = {
+  receipts: {
+    // Upload a receipt image
+    upload: async (file: File, userId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic'];
+      if (!allowedTypes.includes(file.type)) {
+        return {
+          data: null,
+          error: new Error('Geçersiz dosya tipi. Sadece JPG, PNG, WEBP ve HEIC desteklenmektedir.')
+        };
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        return {
+          data: null,
+          error: new Error('Dosya boyutu çok büyük. Maksimum 10MB yüklenebilir.')
+        };
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(fileName);
+
+      return { data: { path: fileName, publicUrl }, error: null };
+    },
+
+    // Delete a receipt image
+    delete: async (filePath: string) => {
+      if (!supabase) {
+        return { error: new Error('Supabase not configured') };
+      }
+
+      const { error } = await supabase.storage
+        .from('receipts')
+        .remove([filePath]);
+
+      return { error };
+    },
+
+    // Get public URL for a receipt
+    getPublicUrl: (filePath: string) => {
+      if (!supabase) {
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    },
+  },
+};
+
 // Real-time subscriptions
 export const subscriptions = {
   // Subscribe to group changes
