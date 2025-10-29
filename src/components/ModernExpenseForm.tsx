@@ -2,7 +2,9 @@ import React, { useState, useRef } from 'react';
 import { AmountInput } from './AmountInput';
 import { CategorySelector, DEFAULT_CATEGORIES, Category } from './CategorySelector';
 import { SplitCalculator, Member } from './SplitCalculator';
+import { CurrencySelector } from './CurrencySelector';
 import { storage } from '../lib/supabase';
+import { CurrencyCode } from '../lib/currency-exchange';
 
 export interface ModernExpenseFormProps {
   groupId?: string;
@@ -23,6 +25,7 @@ export interface ExpenseData {
   customSplits?: Record<string, number>;
   note?: string;
   photo?: string;
+  currency?: CurrencyCode;
 }
 
 export function ModernExpenseForm({
@@ -46,6 +49,7 @@ export function ModernExpenseForm({
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [currency, setCurrency] = useState<CurrencyCode>('TRY');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatDate = (date: Date) => {
@@ -163,7 +167,8 @@ export function ModernExpenseForm({
       selectedMembers,
       customSplits: splitType === 'custom' ? customSplits : undefined,
       note: note.trim() || undefined,
-      photo: photoUrl
+      photo: photoUrl,
+      currency
     };
 
     onSave(expenseData);
@@ -208,6 +213,20 @@ export function ModernExpenseForm({
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
           />
+
+          {/* Currency Selector */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-text-secondary dark:text-gray-400">
+              Para Birimi
+            </label>
+            <CurrencySelector
+              selectedCurrency={currency}
+              onCurrencyChange={setCurrency}
+              amount={parseFloat(amount) || undefined}
+              showConversion={!!amount && parseFloat(amount) > 0}
+              targetCurrency="TRY"
+            />
+          </div>
 
           {/* Date & Payer */}
           <div className="grid grid-cols-2 gap-4">
