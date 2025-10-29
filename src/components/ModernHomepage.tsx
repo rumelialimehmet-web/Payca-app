@@ -191,21 +191,66 @@ export function ModernHomepage({
             )}
           </div>
         ) : (
-          // Empty State
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-6xl mb-4">📊</div>
-            <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-              Henüz Grup Yok!
+          // Empty State - Modern Onboarding Design (Variant 3)
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            {/* Illustration */}
+            <div className="w-[280px] h-[240px] mb-8 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 flex items-center justify-center relative overflow-hidden">
+              {/* Decorative Background Elements */}
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent"></div>
+              <div className="absolute top-1/4 left-1/4 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
+              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
+
+              {/* Icon Illustration */}
+              <div className="relative z-10 flex flex-col items-center gap-4">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
+                  <span className="material-symbols-outlined text-white text-[40px]">groups</span>
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-primary text-[24px]">account_balance_wallet</span>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-primary text-[24px]">receipt_long</span>
+                  </div>
+                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
+                    <span className="material-symbols-outlined text-primary text-[24px]">trending_up</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-[28px] font-bold text-[#1F2937] dark:text-gray-100 mb-3 leading-tight">
+              Henüz Hiç Grubun Yok
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-sm">
-              İlk grubunuzu oluşturarak masraf paylaşımına başlayın.
+
+            {/* Description */}
+            <p className="text-[16px] text-[#6B7280] dark:text-gray-400 mb-8 max-w-[320px] leading-relaxed">
+              Arkadaşlarınla harcamalarını paylaş, kolayca hesaplaşın ve her şeyi tek yerden takip edin.
             </p>
+
+            {/* Primary CTA Button */}
             <button
               onClick={onCreateGroup}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold transition-transform hover:scale-105 active:scale-95"
+              className="w-full max-w-[320px] flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-primary to-purple-600 text-white rounded-2xl font-semibold text-[16px] transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] shadow-md"
+              style={{
+                boxShadow: '0 4px 14px 0 rgba(83, 72, 234, 0.4)'
+              }}
             >
-              <span className="material-symbols-outlined">add</span>
-              İlk Grubu Oluştur
+              <span className="material-symbols-outlined text-[24px]">add_circle</span>
+              İlk Grubunu Oluştur
+            </button>
+
+            {/* Secondary Link */}
+            <button
+              onClick={() => {
+                // Could open a tutorial or help modal
+                console.log('Nasıl çalışır clicked');
+              }}
+              className="mt-6 flex items-center gap-1 text-primary text-[14px] font-medium hover:underline transition-all"
+            >
+              Nasıl Çalışır?
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </div>
         )}
