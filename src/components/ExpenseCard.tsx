@@ -1,11 +1,12 @@
 import React from 'react';
+import { getCurrencySymbol, CurrencyCode } from '../lib/currency-exchange';
 
 export interface ExpenseCardProps {
   id: string;
   emoji?: string;
   title: string;
   amount: number;
-  currency?: string;
+  currency?: CurrencyCode;
   paidBy: {
     id: string;
     name: string;
@@ -15,6 +16,7 @@ export interface ExpenseCardProps {
   isUserOwed: boolean; // true = user paid and is owed, false = user owes
   category?: string;
   date?: string;
+  receiptUrl?: string | null;
   onClick?: () => void;
 }
 
@@ -23,14 +25,16 @@ export function ExpenseCard({
   emoji = '🛒',
   title,
   amount,
-  currency = '₺',
+  currency = 'TRY',
   paidBy,
   userShare,
   isUserOwed,
   category,
   date,
+  receiptUrl,
   onClick
 }: ExpenseCardProps) {
+  const currencySymbol = getCurrencySymbol(currency);
   const getCategoryEmoji = (cat?: string) => {
     const map: Record<string, string> = {
       food: '🍔',
@@ -70,13 +74,18 @@ export function ExpenseCard({
               src={paidBy.avatar}
             />
           )}
+          {receiptUrl && (
+            <span className="material-symbols-outlined text-base text-blue-500" title="Fiş mevcut">
+              receipt
+            </span>
+          )}
         </div>
       </div>
 
       {/* Amount & User Share */}
       <div className="text-right">
         <p className="font-bold text-slate-800 dark:text-slate-100">
-          {amount.toFixed(2)}{currency}
+          {currencySymbol}{amount.toFixed(2)}
         </p>
         <p
           className={`rounded-md px-2 py-0.5 text-xs font-medium ${
@@ -85,7 +94,7 @@ export function ExpenseCard({
               : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400'
           }`}
         >
-          {isUserOwed ? 'Alacak:' : 'Borç:'} {Math.abs(userShare).toFixed(2)}{currency}
+          {isUserOwed ? 'Alacak:' : 'Borç:'} {currencySymbol}{Math.abs(userShare).toFixed(2)}
         </p>
       </div>
     </div>

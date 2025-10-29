@@ -15,6 +15,7 @@ import { ModernExpenseForm } from './src/components/ModernExpenseForm';
 import { ModernSettings } from './src/components/ModernSettings';
 import { ModernGroupCreationModal } from './src/components/ModernGroupCreationModal';
 import ModernPaymentDetail from './src/components/ModernPaymentDetail';
+import ModernNotificationsCenter from './src/components/ModernNotificationsCenter';
 
 // Lazy load heavy components for better performance
 const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
@@ -219,6 +220,67 @@ function App() {
     const [selectedGroupId, setSelectedGroupId] = useState(null);
     const [selectedPayment, setSelectedPayment] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
+
+    // Notifications state
+    const [notifications, setNotifications] = useState(() => [
+        {
+            id: 'notif-1',
+            type: 'expense',
+            title: 'Yeni Harcama Eklendi',
+            message: 'Ali "Ev Arkadaşları" grubuna 380.50 ₺ tutarında market alışverişi ekledi.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 mins ago
+            isRead: false,
+            amount: 380.50,
+            groupName: 'Ev Arkadaşları',
+        },
+        {
+            id: 'notif-2',
+            type: 'payment_request',
+            title: 'Ödeme Talebi',
+            message: 'Buse senden 95.12 ₺ ödeme talep ediyor.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
+            isRead: false,
+            amount: 95.12,
+            actionData: { paymentId: 'payment-123' },
+        },
+        {
+            id: 'notif-3',
+            type: 'group_invite',
+            title: 'Grup Daveti',
+            message: 'Can seni "Tatil 2025" grubuna davet etti.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // Yesterday
+            isRead: false,
+            groupName: 'Tatil 2025',
+            actionData: { inviteId: 'invite-456', groupId: '123' },
+        },
+        {
+            id: 'notif-4',
+            type: 'payment_confirmed',
+            title: 'Ödeme Onaylandı',
+            message: 'Derya 120.00 ₺ ödemenizi onayladı.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // Yesterday
+            isRead: true,
+            amount: 120.00,
+        },
+        {
+            id: 'notif-5',
+            type: 'reminder',
+            title: 'Ödeme Hatırlatması',
+            message: 'Elektrik faturası ödemenizin son günü yaklaşıyor.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
+            isRead: true,
+            groupName: 'Ev Arkadaşları',
+        },
+        {
+            id: 'notif-6',
+            type: 'weekly_summary',
+            title: 'Haftalık Özet',
+            message: 'Bu hafta 3 grupta toplam 1.245 ₺ harcama yaptınız.',
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
+            isRead: true,
+            amount: 1245.00,
+        },
+    ]);
     const [installPromptEvent, setInstallPromptEvent] = useState(null);
     const [showInstallPrompt, setShowInstallPrompt] = useState(false);
     const [theme, setTheme] = useState(() => localStorage.getItem('payca-theme') || 'dark');
