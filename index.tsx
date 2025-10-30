@@ -1,2125 +1,260 @@
-
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { AuthProvider, useAuth } from './src/hooks/useAuth';
-import { useGroups } from './src/hooks/useGroups';
-import { QRCodeSVG } from 'qrcode.react';
-import { ErrorBoundary } from './src/components/ErrorBoundary';
-import { exportGroupToExcel, exportAllGroupsToExcel } from './src/lib/excel-export';
-import { processRecurringExpenses, wasCheckedToday, setLastCheckDate } from './src/lib/recurring-utils';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/react';
-import { ModernHomepage } from './src/components/ModernHomepage';
-import { ModernGroupDetail } from './src/components/ModernGroupDetail';
-import { ModernExpenseForm } from './src/components/ModernExpenseForm';
-import { ModernSettings } from './src/components/ModernSettings';
-import { ModernGroupCreationModal } from './src/components/ModernGroupCreationModal';
-import ModernPaymentDetail from './src/components/ModernPaymentDetail';
-import ModernNotificationsCenter from './src/components/ModernNotificationsCenter';
 
-// Lazy load heavy components for better performance
-const ReceiptScanner = lazy(() => import('./src/components/ReceiptScanner').then(m => ({ default: m.ReceiptScanner })));
-const AIAdvisor = lazy(() => import('./src/components/AIAdvisor').then(m => ({ default: m.AIAdvisor })));
-const RecurringExpenses = lazy(() => import('./src/components/RecurringExpenses').then(m => ({ default: m.RecurringExpenses })));
-
-// Loading spinner component
-const LoadingSpinner = () => (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px' }}>
-        <div className="spinner"></div>
-        <span style={{ marginLeft: '12px' }}>Yükleniyor...</span>
-    </div>
-);
-
-// --- HELPER FUNCTIONS ---
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: 'TRY',
-    }).format(amount);
-};
-
-const getCategoryEmoji = (category) => {
-    const categoryMap = {
-        food: '🍔',
-        transportation: '🚗',
-        bills: '💡',
-        rent: '🏠',
-        entertainment: '🎬',
-        shopping: '🛍️',
-        health: '🏥',
-        education: '📚',
-        other: '📦'
-    };
-    return categoryMap[category] || '📦';
-};
-
-const getCategoryName = (category) => {
-    const categoryNames = {
-        food: 'Yemek',
-        transportation: 'Ulaşım',
-        bills: 'Faturalar',
-        rent: 'Kira',
-        entertainment: 'Eğlence',
-        shopping: 'Alışveriş',
-        health: 'Sağlık',
-        education: 'Eğitim',
-        other: 'Diğer'
-    };
-    return categoryNames[category] || 'Diğer'
-};
-
-const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('tr-TR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    }).format(date);
-};
-
-const calculateSettlements = (balances) => {
-    let debtors = balances.filter(m => m.balance < 0).map(m => ({ ...m, balance: m.balance })).sort((a, b) => a.balance - b.balance);
-    let creditors = balances.filter(m => m.balance > 0).map(m => ({ ...m, balance: m.balance })).sort((a, b) => b.balance - a.balance);
-    const settlements = [];
-
-    while (debtors.length > 0 && creditors.length > 0) {
-        const debtor = debtors[0];
-        const creditor = creditors[0];
-        const amount = Math.min(-debtor.balance, creditor.balance);
-
-        settlements.push({
-            from: debtor,
-            to: creditor,
-            amount: amount,
-        });
-
-        debtor.balance += amount;
-        creditor.balance -= amount;
-
-        if (Math.abs(debtor.balance) < 0.01) debtors.shift();
-        if (Math.abs(creditor.balance) < 0.01) creditors.shift();
-    }
-    return settlements;
-};
-
-// --- SAMPLE DATA ---
-const initialGroups = [
-    {
-        id: 1,
-        name: 'Ev Arkadaşları',
-        description: 'Kira, faturalar ve ortak masraflar',
-        currency: '₺',
-        type: 'Ev Arkadaşları',
-        members: [
-            { id: 1, name: 'Ali' },
-            { id: 2, name: 'Buse' },
-            { id: 3, name: 'Can' },
-            { id: 4, name: 'Derya' }
-        ],
-        expenses: [
-            { id: 1, description: 'Market Alışverişi (Migros)', amount: 380.50, paidBy: 1, date: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString(), splitType: 'equal', splits: [] },
-            { id: 2, description: 'Elektrik Faturası', amount: 520.00, paidBy: 2, date: new Date(new Date().setDate(new Date().getDate() - 10)).toISOString(), splitType: 'equal', splits: [] },
-            { id: 3, description: 'İnternet Faturası', amount: 340.00, paidBy: 3, date: new Date().toISOString(), splitType: 'equal', splits: [] },
-            { id: 4, description: 'Restoran (Akşam Yemeği)', amount: 850.00, paidBy: 1, date: new Date(new Date().setDate(new Date().getDate() - 5)).toISOString(), splitType: 'equal', splits: [] },
-            { id: 5, description: 'Taksi Ücreti', amount: 120.00, paidBy: 4, date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), splitType: 'equal', splits: [] },
-            { id: 6, description: 'Market (A101)', amount: 210.75, paidBy: 1, date: new Date(new Date().setMonth(new Date().getMonth() - 2)).toISOString(), splitType: 'equal', splits: [] },
-            { id: 7, description: 'Sinema Biletleri', amount: 400.00, paidBy: 2, date: new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString(), splitType: 'equal', splits: [] },
-        ]
-    },
-];
-
-const sampleReceipts = [
-    { merchant: 'Migros', total: 254.75 },
-    { merchant: 'A101', total: 189.50 },
-    { merchant: 'BIM', total: 312.20 },
-    { merchant: 'CarrefourSA', total: 415.60 },
-    { merchant: 'Şok Market', total: 155.00 },
-];
-
-// --- COMPONENTS ---
-function QRCodeModal({ groupId, groupName, onClose }) {
-    const groupLink = `${window.location.origin}/#/group/${groupId}`;
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', textAlign: 'center' }}>
-                <button className="modal-close-button" onClick={onClose}>&times;</button>
-                <h2>📱 QR Kod ile Katıl</h2>
-                <p style={{ marginBottom: '20px' }}>Bu QR kodu tarayarak gruba katılabilirsiniz</p>
-
-                <div style={{ background: 'white', padding: '20px', borderRadius: '12px', marginBottom: '20px' }}>
-                    <QRCodeSVG
-                        value={groupLink}
-                        size={256}
-                        level="H"
-                        includeMargin={true}
-                    />
-                </div>
-
-                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                    <strong>{groupName}</strong>
-                </p>
-
-                <div style={{ display: 'flex', gap: '8px', flexDirection: 'column' }}>
-                    <button
-                        className="form-button"
-                        onClick={() => {
-                            navigator.clipboard.writeText(groupLink);
-                            alert('✅ Link kopyalandı!');
-                        }}
-                    >
-                        🔗 Linki Kopyala
-                    </button>
-                    <button
-                        className="secondary-button"
-                        onClick={onClose}
-                    >
-                        Kapat
-                    </button>
-                </div>
+// Landing Page Component
+const LandingPage = () => {
+  return (
+    <div className="relative w-full overflow-x-hidden">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm">
+        <div className="container mx-auto px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg
+                className="text-primary h-7 w-7"
+                fill="none"
+                height="28"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+                width="28"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+                <path d="M2 17l10 5 10-5"></path>
+                <path d="M2 12l10 5 10-5"></path>
+              </svg>
+              <span className="text-2xl font-bold text-text-light dark:text-text-dark">Payça</span>
             </div>
-        </div>
-    );
-}
-
-function InstallPwaPrompt({ onInstall, onDismiss, isIOS, hasInstallEvent }) {
-    return (
-        <div className="install-prompt-banner">
-            <div className="install-prompt-text">
-                {isIOS
-                    ? <p>Uygulamayı yüklemek için: Paylaş butonuna ve ardından <strong>'Ana Ekrana Ekle'</strong> seçeneğine dokunun.</p>
-                    : <p>Payça'yı ana ekranınıza ekleyerek daha hızlı erişin!</p>
-                }
-            </div>
-            <div className="install-prompt-actions">
-                {hasInstallEvent && !isIOS && <button className="cta-button" onClick={onInstall}>Yükle</button>}
-                <button className="dismiss-button" onClick={onDismiss} title="Kapat">&times;</button>
-            </div>
-        </div>
-    );
-}
-
-function App() {
-    // Use Supabase Auth hook
-    const { user: supabaseUser, loading: authLoading, signIn, signUp, signInWithGoogle, signOut } = useAuth();
-
-    // Adapt Supabase user to app's expected format
-    const user = useMemo(() => {
-        if (!supabaseUser) return null;
-        return {
-            id: supabaseUser.id,
-            name: supabaseUser.user_metadata?.display_name || supabaseUser.email?.split('@')[0] || 'User',
-            email: supabaseUser.email || '',
-        };
-    }, [supabaseUser]);
-
-    const [groups, setGroups] = useState([]);
-    const [currentView, setCurrentView] = useState('dashboard');
-    const [selectedGroupId, setSelectedGroupId] = useState(null);
-    const [selectedPayment, setSelectedPayment] = useState(null);
-    const [successMessage, setSuccessMessage] = useState('');
-
-    // Notifications state
-    const [notifications, setNotifications] = useState(() => [
-        {
-            id: 'notif-1',
-            type: 'expense',
-            title: 'Yeni Harcama Eklendi',
-            message: 'Ali "Ev Arkadaşları" grubuna 380.50 ₺ tutarında market alışverişi ekledi.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 mins ago
-            isRead: false,
-            amount: 380.50,
-            groupName: 'Ev Arkadaşları',
-        },
-        {
-            id: 'notif-2',
-            type: 'payment_request',
-            title: 'Ödeme Talebi',
-            message: 'Buse senden 95.12 ₺ ödeme talep ediyor.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-            isRead: false,
-            amount: 95.12,
-            actionData: { paymentId: 'payment-123' },
-        },
-        {
-            id: 'notif-3',
-            type: 'group_invite',
-            title: 'Grup Daveti',
-            message: 'Can seni "Tatil 2025" grubuna davet etti.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // Yesterday
-            isRead: false,
-            groupName: 'Tatil 2025',
-            actionData: { inviteId: 'invite-456', groupId: '123' },
-        },
-        {
-            id: 'notif-4',
-            type: 'payment_confirmed',
-            title: 'Ödeme Onaylandı',
-            message: 'Derya 120.00 ₺ ödemenizi onayladı.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // Yesterday
-            isRead: true,
-            amount: 120.00,
-        },
-        {
-            id: 'notif-5',
-            type: 'reminder',
-            title: 'Ödeme Hatırlatması',
-            message: 'Elektrik faturası ödemenizin son günü yaklaşıyor.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3), // 3 days ago
-            isRead: true,
-            groupName: 'Ev Arkadaşları',
-        },
-        {
-            id: 'notif-6',
-            type: 'weekly_summary',
-            title: 'Haftalık Özet',
-            message: 'Bu hafta 3 grupta toplam 1.245 ₺ harcama yaptınız.',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 5), // 5 days ago
-            isRead: true,
-            amount: 1245.00,
-        },
-    ]);
-    const [installPromptEvent, setInstallPromptEvent] = useState(null);
-    const [showInstallPrompt, setShowInstallPrompt] = useState(false);
-    const [theme, setTheme] = useState(() => localStorage.getItem('payca-theme') || 'dark');
-    const [showOnboarding, setShowOnboarding] = useState(false);
-    const [showHelpFeedbackModal, setShowHelpFeedbackModal] = useState(false);
-    const [authModal, setAuthModal] = useState({ isOpen: false, view: 'login' });
-
-    // Mobile: Bottom navigation active tab
-    const [activeTab, setActiveTab] = useState('home');
-
-    // Mobile: FAB extended state
-    const [fabExpanded, setFabExpanded] = useState(false);
-
-    // Receipt Scanner state
-    const [showReceiptScanner, setShowReceiptScanner] = useState(false);
-
-    // AI Advisor state
-    const [showAIAdvisor, setShowAIAdvisor] = useState(false);
-
-    // Offline Mode state
-    const [isOnline, setIsOnline] = useState(navigator.onLine);
-    const [pendingSyncCount, setPendingSyncCount] = useState(0);
-
-    // FIX: Add type cast to `(window as any)` to access non-standard `MSStream` property.
-    const isIOS = useMemo(() => /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream, []);
-    const isStandalone = useMemo(() => window.matchMedia('(display-mode: standalone)').matches, []);
-
-    useEffect(() => {
-        document.body.setAttribute('data-theme', theme);
-        localStorage.setItem('payca-theme', theme);
-    }, [theme]);
-
-    // Offline Mode: Listen for online/offline events
-    useEffect(() => {
-        const handleOnline = () => {
-            console.log('[Offline Mode] Back online!');
-            setIsOnline(true);
-            setSuccessMessage('✅ Bağlantı yeniden kuruldu! Senkronize ediliyor...');
-            setTimeout(() => setSuccessMessage(''), 3000);
-
-            // Trigger background sync if available
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then((registration) => {
-                    if ('sync' in registration) {
-                        return registration.sync.register('sync-expenses');
-                    }
-                }).catch((err) => console.log('Sync not supported:', err));
-            }
-        };
-
-        const handleOffline = () => {
-            console.log('[Offline Mode] Gone offline!');
-            setIsOnline(false);
-            setSuccessMessage('⚠️ İnternet bağlantısı yok. Çevrimdışı modda çalışıyorsunuz.');
-            setTimeout(() => setSuccessMessage(''), 4000);
-        };
-
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-
-        // Listen for service worker messages
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.addEventListener('message', (event) => {
-                if (event.data.type === 'SYNC_COMPLETE') {
-                    console.log('[Offline Mode] Sync complete:', event.data.count, 'items');
-                    setPendingSyncCount(0);
-                    setSuccessMessage(`✅ ${event.data.count} harcama senkronize edildi!`);
-                    setTimeout(() => setSuccessMessage(''), 3000);
-                }
-            });
-        }
-
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
-
-    // Load groups from localStorage when user logs in
-    useEffect(() => {
-        if (user) {
-            try {
-                const storedGroups = localStorage.getItem(`payca-groups-${user.id}`);
-                const userGroups = storedGroups ? JSON.parse(storedGroups) : initialGroups;
-                setGroups(userGroups);
-            } catch (error) {
-                console.error("Error loading groups from localStorage:", error);
-                setGroups(initialGroups);
-            }
-        } else {
-            setGroups([]);
-        }
-    }, [user]);
-
-    // Save groups to localStorage when they change
-    useEffect(() => {
-        if (user && groups.length > 0) {
-            localStorage.setItem(`payca-groups-${user.id}`, JSON.stringify(groups));
-        }
-    }, [groups, user]);
-
-    // Process recurring expenses (check daily)
-    useEffect(() => {
-        if (!user || groups.length === 0) return;
-
-        // Bugün zaten kontrol edildi mi?
-        if (wasCheckedToday()) {
-            console.log('[Recurring] Already checked today, skipping...');
-            return;
-        }
-
-        console.log('[Recurring] Checking for recurring expenses...');
-
-        // Tekrarlayan harcamaları işle
-        const createdCount = processRecurringExpenses(groups, handleAddExpense);
-
-        // Son kontrol tarihini güncelle
-        setLastCheckDate(new Date().toISOString());
-
-        if (createdCount > 0) {
-            setSuccessMessage(`✅ ${createdCount} tekrarlayan harcama otomatik oluşturuldu!`);
-            setTimeout(() => setSuccessMessage(''), 4000);
-        } else {
-            console.log('[Recurring] No expenses to create today.');
-        }
-    }, [user, groups]);
-
-    useEffect(() => {
-        if (successMessage) {
-            const timer = setTimeout(() => setSuccessMessage(''), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [successMessage]);
-
-    useEffect(() => {
-        const handleBeforeInstallPrompt = (e) => {
-            e.preventDefault();
-            setInstallPromptEvent(e);
-            if (!isStandalone) {
-                setShowInstallPrompt(true);
-            }
-        };
-        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-        if (isIOS && !isStandalone) {
-            setShowInstallPrompt(true);
-        }
-        return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    }, [isIOS, isStandalone]);
-
-    const handleLogin = async (email, password) => {
-        const { error } = await signIn(email, password);
-        if (error) {
-            console.error('Login error:', error);
-            setSuccessMessage('Giriş başarısız! Lütfen bilgilerinizi kontrol edin.');
-            return { error };
-        }
-        setAuthModal({ isOpen: false, view: 'login' });
-        // Show onboarding only on first login for this user
-        if (user && !localStorage.getItem(`payca-onboarding-complete-${user.id}`)) {
-            setShowOnboarding(true);
-        }
-        return { error: null };
-    };
-
-    const handleSignup = async (email, password, displayName) => {
-        const { error } = await signUp(email, password, displayName);
-        if (error) {
-            console.error('Signup error:', error);
-            setSuccessMessage('Kayıt başarısız! Lütfen tekrar deneyin.');
-            return { error };
-        }
-        setAuthModal({ isOpen: false, view: 'login' });
-        setSuccessMessage('Kayıt başarılı! Hoş geldiniz!');
-        return { error: null };
-    };
-
-    const handleGoogleLogin = async () => {
-        const { error } = await signInWithGoogle();
-        if (error) {
-            console.error('Google login error:', error);
-            setSuccessMessage('Google ile giriş başarısız!');
-            return { error };
-        }
-        setAuthModal({ isOpen: false, view: 'login' });
-        return { error: null };
-    };
-
-    const handleLogout = async () => {
-        const { error } = await signOut();
-        if (error) {
-            console.error('Logout error:', error);
-        }
-        handleNavigate('dashboard');
-    };
-
-    const handleUpdateUser = (updatedUserData) => {
-        // Note: This will need to be updated to use Supabase profile update
-        // For now, just show success message
-        setSuccessMessage("Profil başarıyla güncellendi!");
-    }
-
-    const handleThemeChange = (newTheme) => {
-        setTheme(newTheme);
-    };
-
-    const handleResetData = () => {
-        if (window.confirm("Tüm verileri silip başlangıç durumuna dönmek istediğinizden emin misiniz? Bu işlem, öğreticiyi de tekrar gösterecektir.")) {
-            if (user) {
-                localStorage.removeItem(`payca-groups-${user.id}`);
-                localStorage.removeItem(`payca-onboarding-complete-${user.id}`);
-            }
-            setGroups(initialGroups);
-            setTheme('dark');
-            setSuccessMessage('Veriler başarıyla sıfırlandı.');
-            handleLogout();
-        }
-    };
-
-    const handleInstallClick = () => {
-        if (!installPromptEvent) return;
-        installPromptEvent.prompt();
-        installPromptEvent.userChoice.then(() => {
-            setInstallPromptEvent(null);
-            setShowInstallPrompt(false);
-        });
-    };
-
-    const handleNavigate = (view, groupId = null) => {
-        setCurrentView(view);
-        setSelectedGroupId(groupId);
-    };
-
-    const handleOnboardingComplete = () => {
-        if (user) {
-            localStorage.setItem(`payca-onboarding-complete-${user.id}`, 'true');
-        }
-        setShowOnboarding(false);
-    };
-
-    const handleCreateGroup = (newGroupData) => {
-        setGroups(prevGroups => {
-            const newId = prevGroups.length > 0 ? Math.max(...prevGroups.map(g => g.id)) + 1 : 1;
-            // Add current user as the first member and filter out duplicates
-            const otherMembers = newGroupData.members.filter(m => m.name.trim().toLowerCase() !== user.name.trim().toLowerCase());
-            const membersWithUser = [{ id: user.id, name: user.name }, ...otherMembers]
-            const newGroup = { ...newGroupData, id: newId, expenses: [], currency: '₺', members: membersWithUser };
-            return [...prevGroups, newGroup];
-        });
-        setSuccessMessage('Grup başarıyla oluşturuldu!');
-        handleNavigate('dashboard');
-    };
-
-    const handleAddExpense = (groupId, newExpense) => {
-        setGroups(prevGroups => prevGroups.map(group => {
-            if (group.id === groupId) {
-                const newId = group.expenses.length > 0 ? Math.max(...group.expenses.map(e => e.id)) + 1 : 1;
-                const expenseToAdd = {
-                    ...newExpense,
-                    id: newId,
-                    date: newExpense.date ? newExpense.date.toISOString() : new Date().toISOString(),
-                    // Ensure splitType and splits are properly set
-                    splitType: newExpense.splitType || 'equal',
-                    splits: newExpense.customSplits && newExpense.splitType === 'custom'
-                        ? newExpense.selectedMembers.map(memberId => ({
-                            memberId,
-                            amount: newExpense.customSplits[memberId] || 0
-                        }))
-                        : []
-                };
-                return { ...group, expenses: [...group.expenses, expenseToAdd] };
-            }
-            return group;
-        }));
-        setSuccessMessage('Harcama başarıyla eklendi!');
-    };
-
-    const selectedGroup = useMemo(() =>
-        groups.find(g => g.id === selectedGroupId),
-        [groups, selectedGroupId]
-    );
-
-    // Show loading state while checking authentication
-    if (authLoading) {
-        return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
-                <div style={{ fontSize: '24px', marginBottom: '16px' }}>Yükleniyor...</div>
-                <div className="spinner"></div>
-            </div>
-        );
-    }
-
-    if (!user) {
-        return (
-            <>
-                <LandingPage onShowAuth={(view) => setAuthModal({ isOpen: true, view })} />
-                {authModal.isOpen && <AuthModal view={authModal.view} onLogin={handleLogin} onSignup={handleSignup} onGoogleLogin={handleGoogleLogin} onClose={() => setAuthModal({ isOpen: false, view: 'login' })} />}
-                <AppFooter />
-            </>
-        );
-    }
-
-    // Handle FAB actions
-    const handleFabAction = (actionId) => {
-        switch (actionId) {
-            case 'advisor':
-                // Open AI Financial Advisor
-                setShowAIAdvisor(true);
-                break;
-            case 'scan':
-                // Open receipt scanner with Gemini Vision
-                setShowReceiptScanner(true);
-                break;
-            case 'expense':
-                // Navigate to first group or create group
-                if (groups.length > 0) {
-                    handleNavigate('groupDetail', groups[0].id);
-                } else {
-                    handleNavigate('createGroup');
-                }
-                break;
-            case 'group':
-                handleNavigate('createGroup');
-                break;
-            default:
-                break;
-        }
-    };
-
-    // Handle receipt scan completion
-    const handleReceiptScanComplete = (data) => {
-        // If we have groups, add to first group; otherwise create a new group
-        if (groups.length === 0) {
-            setSuccessMessage('⚠️ Önce bir grup oluşturun!');
-            setTimeout(() => setSuccessMessage(''), 3000);
-            handleNavigate('createGroup');
-            return;
-        }
-
-        // Add expense to the first group (or we could show a group selector)
-        const firstGroup = groups[0];
-        const newExpense = {
-            id: Date.now().toString(),
-            description: data.merchantName || 'Taranmış Fatura',
-            amount: data.amount || 0,
-            paidBy: user.id,
-            date: data.date || new Date().toISOString(),
-            category: data.category || 'other',
-            splitType: 'equal',
-            splits: firstGroup.members.map(memberId => ({
-                userId: memberId,
-                amount: (data.amount || 0) / firstGroup.members.length
-            }))
-        };
-
-        handleAddExpense(firstGroup.id, newExpense);
-        setSuccessMessage(`✅ Fatura tarandı! ${formatCurrency(data.amount)} harcama eklendi.`);
-        setTimeout(() => setSuccessMessage(''), 4000);
-        handleNavigate('groupDetail', firstGroup.id);
-    };
-
-    const renderContent = () => {
-        if (!selectedGroup && (currentView === 'groupDetail' || currentView === 'settlement' || currentView === 'addExpense' || currentView === 'paymentDetail')) {
-            handleNavigate('dashboard');
-            return null;
-        }
-        switch (currentView) {
-            case 'createGroup':
-                return (
-                    <ModernGroupCreationModal
-                        currentUser={user}
-                        onCreateGroup={(groupData) => {
-                            const newGroup = {
-                                id: Date.now(),
-                                name: groupData.name,
-                                description: groupData.description || '',
-                                currency: groupData.currency === 'TRY' ? '₺' : groupData.currency === 'USD' ? '$' : '€',
-                                type: 'Genel',
-                                icon: groupData.icon,
-                                members: groupData.members.map(m => ({ ...m, id: m.id.startsWith('temp-') ? Date.now() + Math.random() : m.id })),
-                                expenses: []
-                            };
-                            handleCreateGroup(newGroup);
-                        }}
-                        onClose={() => handleNavigate('dashboard')}
-                    />
-                );
-            case 'addExpense':
-                return (
-                    <ModernExpenseForm
-                        groupId={selectedGroup.id}
-                        members={selectedGroup.members}
-                        currentUser={user}
-                        onSave={(expenseData) => {
-                            handleAddExpense(selectedGroup.id, expenseData);
-                            handleNavigate('groupDetail', selectedGroup.id);
-                        }}
-                        onCancel={() => handleNavigate('groupDetail', selectedGroup.id)}
-                    />
-                );
-            case 'groupDetail':
-                return (
-                    <ModernGroupDetail
-                        group={selectedGroup}
-                        currentUser={user}
-                        onBack={() => handleNavigate('dashboard')}
-                        onSettings={() => handleNavigate('settings')}
-                        onAddExpense={() => handleNavigate('addExpense', selectedGroup.id)}
-                        onExpenseClick={(expenseId) => {
-                            // TODO: Show expense detail modal
-                            console.log('Expense clicked:', expenseId);
-                        }}
-                        activeBottomTab={activeTab}
-                        onTabChange={setActiveTab}
-                    />
-                );
-            case 'settlement':
-                return <SettlementScreen group={selectedGroup} onNavigate={handleNavigate} onPaymentClick={(payment) => {
-                    setSelectedPayment(payment);
-                    handleNavigate('paymentDetail');
-                }} />;
-            case 'paymentDetail':
-                if (!selectedPayment) {
-                    handleNavigate('settlement', selectedGroupId);
-                    return null;
-                }
-                return (
-                    <ModernPaymentDetail
-                        payment={selectedPayment}
-                        onBack={() => handleNavigate('settlement', selectedGroupId)}
-                        onConfirm={() => {
-                            // TODO: Mark payment as completed in database
-                            setSuccessMessage('Ödeme onaylandı!');
-                            handleNavigate('settlement', selectedGroupId);
-                        }}
-                        onCancel={() => {
-                            // TODO: Cancel payment in database
-                            setSuccessMessage('Ödeme iptal edildi.');
-                            handleNavigate('settlement', selectedGroupId);
-                        }}
-                    />
-                );
-            case 'analytics':
-                return <AnalyticsScreen groups={groups} currentUser={user} onNavigate={handleNavigate} setShowAIAdvisor={setShowAIAdvisor} />;
-            case 'settings':
-                // Calculate stats for settings page
-                const totalExpenses = groups.reduce((sum, group) => sum + (group.expenses?.length || 0), 0);
-                const uniqueFriends = new Set(
-                    groups.flatMap(group => group.members.map(m => m.id))
-                ).size - 1; // Subtract current user
-
-                return (
-                    <ModernSettings
-                        user={user}
-                        stats={{
-                            expenses: totalExpenses,
-                            groups: groups.length,
-                            friends: uniqueFriends
-                        }}
-                        theme={theme}
-                        onThemeChange={handleThemeChange}
-                        onLogout={handleLogout}
-                        onBack={() => handleNavigate('dashboard')}
-                        activeBottomTab={activeTab}
-                        onTabChange={setActiveTab}
-                    />
-                );
-            case 'dashboard':
-            default:
-                return (
-                    <ModernHomepage
-                        user={user}
-                        groups={groups}
-                        onSelectGroup={(id) => handleNavigate('groupDetail', id)}
-                        onCreateGroup={() => handleNavigate('createGroup')}
-                        onAddExpense={() => {
-                            if (groups.length > 0) {
-                                handleNavigate('addExpense', groups[0].id);
-                            } else {
-                                handleNavigate('createGroup');
-                            }
-                        }}
-                        onShowAllGroups={() => handleNavigate('analytics')}
-                        activeTab={activeTab}
-                        onTabChange={setActiveTab}
-                    />
-                );
-        }
-    };
-
-    return (
-        <div className="container">
-            {showInstallPrompt && <InstallPwaPrompt onInstall={handleInstallClick} onDismiss={() => setShowInstallPrompt(false)} isIOS={isIOS} hasInstallEvent={!!installPromptEvent} />}
-            {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
-            {showHelpFeedbackModal && <HelpFeedbackModal user={user} onUpdateUser={handleUpdateUser} onClose={() => setShowHelpFeedbackModal(false)} onResetData={handleResetData} onLogout={handleLogout} theme={theme} onThemeChange={handleThemeChange} />}
-
-            <header className="app-header">
-                <div className="logo" onClick={() => handleNavigate('dashboard')}>
-                    <div className="hexagon"></div>
-                    <h1>Payça</h1>
-                    {!isOnline && (
-                        <span style={{
-                            marginLeft: '12px',
-                            padding: '4px 12px',
-                            background: 'var(--warning-color)',
-                            color: 'var(--surface-color)',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                        }}>
-                            📴 Çevrimdışı
-                        </span>
-                    )}
-                </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span style={{ fontWeight: 600 }}>Merhaba, {user.name.split(' ')[0]}</span>
-                    <button className="cta-button" onClick={() => handleNavigate('createGroup')}>Yeni Grup</button>
-                    <button className="secondary-button" onClick={() => setShowReceiptScanner(true)} title="Fatura Tara">📷 Fatura Tara</button>
-                    <button className="secondary-button" onClick={() => setShowAIAdvisor(true)} title="AI Finansal Danışman">🤖 AI Danışman</button>
-                    <button className="secondary-button" onClick={() => handleNavigate('analytics')}>İstatistikler</button>
-                    <button className="secondary-button" onClick={() => setShowHelpFeedbackModal(true)}>⚙️ Ayarlar</button>
-                    <button className="secondary-button" onClick={handleLogout} style={{ background: 'var(--danger-color)', color: 'white' }}>Çıkış Yap</button>
-                </div>
-            </header>
-            {successMessage && <div className={`success-toast ${successMessage ? 'show' : ''}`}>{successMessage}</div>}
-            <main>{renderContent()}</main>
-
-            {/* Mobile: Bottom Navigation */}
-            <BottomNavigation
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                onNavigate={handleNavigate}
-            />
-
-            {/* Mobile: Floating Action Button */}
-            <FloatingActionButton
-                expanded={fabExpanded}
-                onToggle={() => setFabExpanded(!fabExpanded)}
-                onAction={handleFabAction}
-            />
-
-            {/* Receipt Scanner Modal */}
-            {showReceiptScanner && (
-                <Suspense fallback={<LoadingSpinner />}>
-                    <ReceiptScanner
-                        onClose={() => setShowReceiptScanner(false)}
-                        onScanComplete={handleReceiptScanComplete}
-                    />
-                </Suspense>
-            )}
-
-            {/* AI Financial Advisor Modal */}
-            {showAIAdvisor && (
-                <Suspense fallback={<LoadingSpinner />}>
-                    <AIAdvisor
-                        groups={groups}
-                        userId={user.id}
-                        onClose={() => setShowAIAdvisor(false)}
-                    />
-                </Suspense>
-            )}
-
-            <AppFooter />
-        </div>
-    );
-}
-
-function LandingPage({ onShowAuth }) {
-    return (
-        <div className="welcome-container">
-            <div className="welcome-card" style={{ padding: '60px' }}>
-                <div className="logo" style={{ justifyContent: 'center', marginBottom: '16px' }}>
-                    <div className="hexagon"></div>
-                    <h1>Payça</h1>
-                </div>
-                <h2>Masrafları Kolayca Paylaşın</h2>
-                <p className="subtitle">Arkadaş grupları, ev arkadaşları ve tatiller için harcamaları takip etmenin en basit yolu.</p>
-                <div className="landing-actions">
-                    <button className="cta-button" onClick={() => onShowAuth('register')} style={{ fontSize: '1.1rem', padding: '14px 32px' }}>
-                        📧 Gmail ile Kayıt Ol
-                    </button>
-                    <button className="secondary-button" onClick={() => onShowAuth('login')}>
-                        Zaten Hesabım Var
-                    </button>
-                </div>
-                 <div style={{ marginTop: '24px', fontSize: '0.9rem', color: 'var(--text-secondary)'}}>
-                    Tüm verileriniz tarayıcınızda yerel olarak saklanır.
-                 </div>
-            </div>
-        </div>
-    );
-}
-
-function AuthModal({ view, onLogin, onSignup, onGoogleLogin, onClose }) {
-    const [currentView, setCurrentView] = useState(view);
-    const [formData, setFormData] = useState({ name: '', email: '', phone: '', password: '', terms: false });
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
-
-    const handleInputChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    };
-
-    const handleGmailAuth = async () => {
-        setLoading(true);
-        setError('');
-        const { error } = await onGoogleLogin();
-        setLoading(false);
-        if (error) {
-            setError('Google ile giriş başarısız oldu. Lütfen tekrar deneyin.');
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
-
-        if (currentView === 'register') {
-            if (!formData.name || !formData.email || !formData.password) {
-                setError("Lütfen tüm zorunlu alanları doldurun.");
-                setLoading(false);
-                return;
-            }
-            if (formData.password.length < 6) {
-                setError("Şifreniz en az 6 karakter olmalıdır.");
-                setLoading(false);
-                return;
-            }
-            if (!formData.terms) {
-                setError("Kullanım koşullarını kabul etmelisiniz.");
-                setLoading(false);
-                return;
-            }
-            // Real Supabase signup
-            const { error } = await onSignup(formData.email, formData.password, formData.name);
-            setLoading(false);
-            if (error) {
-                setError(error.message || "Kayıt başarısız oldu. Lütfen tekrar deneyin.");
-            }
-        } else { // Login
-            if (!formData.email || !formData.password) {
-                setError("Lütfen email ve şifrenizi girin.");
-                setLoading(false);
-                return;
-            }
-            // Real Supabase login
-            const { error } = await onLogin(formData.email, formData.password);
-            setLoading(false);
-            if (error) {
-                setError("Geçersiz e-posta veya şifre.");
-            }
-        }
-    };
-
-    return (
-         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content auth-modal-content" onClick={(e) => e.stopPropagation()}>
-                <button className="modal-close-button" onClick={onClose}>&times;</button>
-                <h2>{currentView === 'register' ? 'Hesap Oluştur' : 'Giriş Yap'}</h2>
-
-                <button className="gmail-button" onClick={handleGmailAuth}>
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.20455C17.64 8.56682 17.5827 7.95273 17.4764 7.36364H9V10.845H13.8436C13.635 11.97 13.0009 12.9232 12.0477 13.5618V15.8195H14.9564C16.6582 14.2527 17.64 11.9455 17.64 9.20455Z" fill="#4285F4"/><path d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5618C11.2418 14.1018 10.2109 14.4205 9 14.4205C6.65591 14.4205 4.67182 12.8373 3.96409 10.71H0.957275V13.0418C2.43818 15.9832 5.48182 18 9 18Z" fill="#34A853"/><path d="M3.96409 10.71C3.78409 10.17 3.68182 9.59318 3.68182 9C3.68182 8.40682 3.78409 7.83 3.96409 7.29H0.957275V9.62182C0.347727 7.545 0.347727 5.31818 0.957275 3.24L3.96409 5.57182C4.67182 3.44455 6.65591 1.86136 9 1.86136C10.3214 1.86136 11.5077 2.33864 12.4405 3.20455L15.0218 0.623182C13.4632 -0.209545 11.4259 -0.636364 9 -0.636364C5.48182 -0.636364 2.43818 1.38136 0.957275 4.32273C-0.319091 6.99545 -0.319091 11.0045 0.957275 13.6773L3.96409 10.71Z" fill="#FBBC05"/><path d="M9 3.57955C10.7182 3.57955 12.0273 4.22727 12.6886 4.85227L15.0805 2.46C13.4632 0.927273 11.43 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z" fill="#EA4335"/></svg>
-                    {currentView === 'register' ? 'Gmail ile Kayıt Ol' : 'Gmail ile Giriş Yap'}
-                </button>
-                <div className="auth-separator">veya</div>
-
-                <form onSubmit={handleSubmit}>
-                    {currentView === 'register' && (
-                        <div className="form-group">
-                            <label htmlFor="name">Ad Soyad</label>
-                            <input type="text" name="name" id="name" value={formData.name} onChange={handleInputChange} required />
-                        </div>
-                    )}
-                    <div className="form-group">
-                        <label htmlFor="email">E-posta</label>
-                        <input type="email" name="email" id="email" value={formData.email} onChange={handleInputChange} required />
-                    </div>
-                    <div className="form-group">
-                        <label htmlFor="password">Şifre</label>
-                        <input type="password" name="password" id="password" value={formData.password} onChange={handleInputChange} required />
-                    </div>
-                     {currentView === 'register' && (
-                        <>
-                         <div className="form-group">
-                            <label htmlFor="phone">Telefon (Opsiyonel)</label>
-                            <input type="tel" name="phone" id="phone" value={formData.phone} onChange={handleInputChange} />
-                         </div>
-                         <div className="form-group checkbox">
-                            <input type="checkbox" name="terms" id="terms" checked={formData.terms} onChange={handleInputChange} />
-                            <label htmlFor="terms">Kullanım koşullarını ve gizlilik politikasını kabul ediyorum.</label>
-                         </div>
-                        </>
-                    )}
-                    {error && <p style={{color: 'var(--danger-color)', textAlign: 'center'}}>{error}</p>}
-                    <button type="submit" className="form-button" style={{width: '100%'}} disabled={loading}>
-                        {loading ? 'Yükleniyor...' : (currentView === 'register' ? 'Hesap Oluştur' : 'Giriş Yap')}
-                    </button>
-                </form>
-
-                <div className="auth-switch-text">
-                    {currentView === 'register'
-                        ? <>Zaten hesabın var mı? <button onClick={() => setCurrentView('login')}>Giriş Yap</button></>
-                        : <>Hesabın yok mu? <button onClick={() => setCurrentView('register')}>Kayıt Ol</button></>
-                    }
-                </div>
-                 {currentView === 'login' && <a href="#" onClick={(e) => { e.preventDefault(); alert("Şifre sıfırlama maili gönderildi (simülasyon).") }} style={{textAlign:'center', display: 'block', fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '8px'}}>Şifremi Unuttum</a>}
-            </div>
-        </div>
-    );
-}
-
-function CreateGroupScreen({ onCreateGroup, onNavigate }) {
-    const [groupName, setGroupName] = useState('');
-    const [description, setDescription] = useState('');
-    const [members, setMembers] = useState([{ id: 1, name: '' }, { id: 2, name: '' }]);
-    const [nextMemberId, setNextMemberId] = useState(3);
-
-    const handleMemberNameChange = (id, newName) => {
-        setMembers(members.map(m => m.id === id ? { ...m, name: newName } : m));
-    };
-
-    const handleAddMember = () => {
-        setMembers([...members, { id: nextMemberId, name: '' }]);
-        setNextMemberId(prevId => prevId + 1);
-    };
-
-    const handleRemoveMember = (id) => {
-        setMembers(members.filter(m => m.id !== id));
-    };
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const validMembers = members
-            .filter(m => m.name.trim() !== '')
-            .map((m, index) => ({ name: m.name.trim(), id: Date.now() + index }));
-
-        if (groupName.trim() && validMembers.length >= 1) {
-            onCreateGroup({
-                name: groupName,
-                description,
-                members: validMembers,
-                type: 'Genel',
-            });
-        } else {
-            alert("Lütfen grup adını ve en az 1 üye ismini girin.");
-        }
-    };
-
-    const isFormValid = groupName.trim() !== '' && members.some(m => m.name.trim() !== '');
-
-    return (
-        <div>
-            <div className="detail-header">
-                <h2>Yeni Grup Oluştur</h2>
-                <button onClick={() => onNavigate('dashboard')} className="back-button">‹ İptal</button>
-            </div>
-            <div className="detail-card" style={{ maxWidth: '600px', margin: '0 auto' }}>
-                <form onSubmit={handleSubmit}>
-                    <div className="form-group">
-                        <label htmlFor="groupName">Grup Adı</label>
-                        <input id="groupName" type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Örn: Ev Arkadaşları" required />
-                    </div>
-                     <div className="form-group">
-                        <label htmlFor="description">Açıklama (Opsiyonel)</label>
-                        <input id="description" type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Kira, faturalar vb." />
-                    </div>
-                    <div className="form-group">
-                        <label>Üyeler (Kendiniz otomatik olarak ekleneceksiniz)</label>
-                        {members.map((member, index) => (
-                            <div key={member.id} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                                <input
-                                    type="text"
-                                    value={member.name}
-                                    onChange={(e) => handleMemberNameChange(member.id, e.target.value)}
-                                    placeholder={`Arkadaşının Adı ${index + 1}`}
-                                />
-                                {members.length > 1 && <button type="button" onClick={() => handleRemoveMember(member.id)} style={{ background: 'var(--danger-color)', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', padding: '0 12px', height: '38px', flexShrink: 0 }}>X</button>}
-                            </div>
-                        ))}
-                        <button type="button" onClick={handleAddMember} style={{ width: '100%', padding: '10px', background: 'var(--surface-color-light)', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'var(--text-primary)', cursor: 'pointer', marginTop: '8px' }}>+ Üye Ekle</button>
-                    </div>
-                    <button type="submit" className="form-button" disabled={!isFormValid}>Grubu Oluştur</button>
-                </form>
-            </div>
-        </div>
-    );
-}
-
-function WelcomeScreen({ onCreateGroup }) {
-    return (
-         <div className="welcome-container">
-            <div className="welcome-card">
-                <h2>İlk Grubunu Oluştur</h2>
-                <p className="subtitle">Başlamak için yeni bir grup oluşturarak masraflarını takip et.</p>
-                <button className="cta-button" onClick={onCreateGroup}>Grup Oluştur</button>
-            </div>
-         </div>
-    );
-}
-
-function GroupsList({ groups, onSelectGroup }) {
-    const groupIcons = { 'Ev Arkadaşları': '🏠', 'Tatil Grubu': '✈️', 'Etkinlik': '🎉', 'Genel': '📝' };
-    return (
-        <div className="groups-grid">
-            {groups.map(group => (
-                <div key={group.id} className="group-card" onClick={() => onSelectGroup(group.id)}>
-                    <div>
-                        <div className="group-card-header">
-                            <span className="group-card-icon">{groupIcons[group.type] || '📝'}</span>
-                            <h3>{group.name}</h3>
-                        </div>
-                        <p>{group.description || 'Grup açıklaması yok.'}</p>
-                    </div>
-                    <div className="group-card-footer">
-                        <span>{group.members.length} üye</span>
-                        <span className="group-card-details-btn">Grup Detayı</span>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
-}
-
-function CameraScanner({ onScanComplete, onCancel }) {
-    const [isProcessing, setIsProcessing] = useState(false);
-
-    const handleCapture = () => {
-        setIsProcessing(true);
-        setTimeout(() => {
-            const randomReceipt = sampleReceipts[Math.floor(Math.random() * sampleReceipts.length)];
-            const scannedData = {
-                description: `${randomReceipt.merchant} Alışverişi`,
-                amount: randomReceipt.total.toString(),
-            };
-            onScanComplete(scannedData);
-        }, 1500); // Simulate OCR processing time
-    };
-
-    return (
-        <div className="scanner-overlay">
-            {isProcessing ? (
-                <div className="scanner-processing">
-                    <div className="spinner"></div>
-                    <p>Fiş Taranıyor...</p>
-                </div>
-            ) : (
-                <>
-                    <div className="viewfinder">
-                        <p>Fişi bu alana ortalayın</p>
-                    </div>
-                    <div className="scanner-controls">
-                        <button className="cta-button" onClick={onCancel} style={{ background: 'var(--surface-color-light)' }}>İptal</button>
-                        <button className="capture-button" onClick={handleCapture}></button>
-                    </div>
-                </>
-            )}
-        </div>
-    );
-}
-
-function GroupDetail({ group, onNavigate, onAddExpense, currentUser }) {
-    const [newExpense, setNewExpense] = useState({
-        description: '',
-        amount: '',
-        paidBy: currentUser.id || '',
-        splitType: 'equal',
-        splits: [],
-        category: 'other' // Default category
-    });
-    const [error, setError] = useState('');
-    const [isScanning, setIsScanning] = useState(false);
-    const [showQRCode, setShowQRCode] = useState(false);
-    const [showRecurringExpenses, setShowRecurringExpenses] = useState(false);
-
-    useEffect(() => {
-        // Reset form when group changes, default paidBy to current user
-        setNewExpense({
-            description: '',
-            amount: '',
-            paidBy: currentUser.id || '',
-            splitType: 'equal',
-            splits: [],
-            category: 'other'
-        });
-    }, [group, currentUser.id]);
-
-    const handleOcrResult = (scannedData) => {
-        setNewExpense(prev => ({ ...prev, ...scannedData }));
-        setIsScanning(false);
-    };
-
-    const totalExpenses = useMemo(() =>
-        group.expenses.reduce((sum, expense) => sum + expense.amount, 0),
-        [group.expenses]
-    );
-
-    const balances = useMemo(() => {
-        // FIX: Add type annotation to `memberBalances` to ensure correct type inference for `balances`.
-        const memberBalances: { [key: string]: { id: number; name: string; balance: number } } = {};
-        group.members.forEach(member => {
-            memberBalances[member.id] = { id: member.id, name: member.name, balance: 0 };
-        });
-
-        if (group.members.length === 0) return [];
-
-        group.expenses.forEach(expense => {
-            if (memberBalances[expense.paidBy]) {
-                memberBalances[expense.paidBy].balance += expense.amount;
-            }
-
-            if (expense.splitType === 'unequal' && expense.splits?.length > 0) {
-                expense.splits.forEach(split => {
-                    if (memberBalances[split.memberId]) {
-                        memberBalances[split.memberId].balance -= (split.amount || 0);
-                    }
-                });
-            } else { // Equal split
-                const sharePerMember = expense.amount / group.members.length;
-                group.members.forEach(member => {
-                    memberBalances[member.id].balance -= sharePerMember;
-                });
-            }
-        });
-
-        return Object.values(memberBalances);
-    }, [group.expenses, group.members]);
-
-    const settlementSuggestions = useMemo(() => {
-        const settlements = calculateSettlements(balances);
-        return settlements.map(s => `${s.from.name}, ${s.to.name}'e ${formatCurrency(s.amount)} ödeyebilir.`);
-    }, [balances]);
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        if (name === 'splitType') {
-            const newSplits = value === 'unequal'
-                ? group.members.map(m => ({ memberId: m.id, amount: '' }))
-                : [];
-            setNewExpense(prev => ({ ...prev, [name]: value, splits: newSplits }));
-        } else {
-            setNewExpense(prev => ({ ...prev, [name]: value }));
-        }
-    };
-
-    const handleCustomSplitChange = (memberId, value) => {
-        setNewExpense(prev => {
-            const newSplits = prev.splits.map(s =>
-                s.memberId === memberId ? { ...s, amount: value } : s
-            );
-            return { ...prev, splits: newSplits };
-        });
-    };
-
-    const handleShareGroup = () => {
-        const groupLink = `${window.location.origin}/#/group/${group.id}`;
-        const shareText = `Payça grubuna katıl: "${group.name}"\n\n${group.description || 'Harcamalarımızı birlikte takip edelim!'}\n\n${groupLink}`;
-
-        // Try native share API first (mobile)
-        if (navigator.share) {
-            navigator.share({
-                title: `Payça - ${group.name}`,
-                text: shareText,
-                url: groupLink
-            }).catch(err => console.log('Share cancelled'));
-        } else {
-            // Fallback: copy to clipboard
-            navigator.clipboard.writeText(shareText).then(() => {
-                alert('Grup linki kopyalandı! Arkadaşlarınla paylaşabilirsin.');
-            });
-        }
-    };
-
-    const handleShareWhatsApp = () => {
-        const groupLink = `${window.location.origin}/#/group/${group.id}`;
-        const shareText = `*Payça Grubuna Katıl!* 🎉\n\n📊 Grup: *${group.name}*\n${group.description ? `📝 ${group.description}\n` : ''}\n👥 ${group.members.length} üye\n\n🔗 Katılmak için tıkla:\n${groupLink}`;
-        const encodedMessage = encodeURIComponent(shareText);
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-    };
-
-    const handleCopyLink = () => {
-        const groupLink = `${window.location.origin}/#/group/${group.id}`;
-        navigator.clipboard.writeText(groupLink).then(() => {
-            alert('✅ Grup linki kopyalandı!');
-        }).catch(() => {
-            alert('Link kopyalanamadı. Lütfen manuel olarak kopyalayın: ' + groupLink);
-        });
-    };
-
-    const handleShareSummary = () => {
-        let summary = `*Payça Grup Özeti: ${group.name}*\n\n`;
-        summary += `Toplam Harcama: *${formatCurrency(totalExpenses)}*\n\n`;
-        summary += "*Güncel Bakiye Durumu:*\n";
-        balances.forEach(b => {
-            const balanceText = b.balance >= 0 ? `(Alacaklı: ${formatCurrency(b.balance)})` : `(Borçlu: ${formatCurrency(b.balance)})`;
-            summary += `- ${b.name}: ${balanceText}\n`;
-        });
-
-        const encodedMessage = encodeURIComponent(summary);
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-    };
-
-    const customSplitTotal = useMemo(() => {
-        if (newExpense.splitType !== 'unequal') return 0;
-        return newExpense.splits.reduce((sum, split) => sum + (parseFloat(split.amount) || 0), 0);
-    }, [newExpense.splits, newExpense.splitType]);
-
-    const remainingToSplit = useMemo(() => {
-        const totalAmount = parseFloat(newExpense.amount) || 0;
-        return totalAmount - customSplitTotal;
-    }, [newExpense.amount, customSplitTotal]);
-
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        const amount = parseFloat(newExpense.amount);
-        if (!newExpense.description || !amount || amount <= 0 || !newExpense.paidBy) {
-            setError('Lütfen tüm alanları doğru doldurun.');
-            return;
-        }
-         if (newExpense.splitType === 'unequal' && Math.abs(remainingToSplit) > 0.01) {
-            setError('Kişiye özel tutarların toplamı, harcama tutarına eşit olmalıdır.');
-            return;
-        }
-        const expenseToAdd = {
-            description: newExpense.description,
-            amount: amount,
-            paidBy: parseInt(newExpense.paidBy),
-            splitType: newExpense.splitType,
-            splits: newExpense.splitType === 'unequal'
-                ? newExpense.splits.map(s => ({...s, amount: parseFloat(s.amount) || 0}))
-                : []
-        };
-
-        onAddExpense(group.id, expenseToAdd);
-        setNewExpense({ description: '', amount: '', paidBy: currentUser.id, splitType: 'equal', splits: [] });
-        setError('');
-    };
-
-    const isFormInvalid = !newExpense.description ||
-        !newExpense.amount ||
-        parseFloat(newExpense.amount) <= 0 ||
-        !newExpense.paidBy ||
-        (newExpense.splitType === 'unequal' && Math.abs(remainingToSplit) > 0.01);
-
-    if (isScanning) {
-        return <CameraScanner onScanComplete={handleOcrResult} onCancel={() => setIsScanning(false)} />;
-    }
-
-    return (
-        <div>
-            <div className="detail-header">
-                <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
-                <h2>{group.name}</h2>
-                <div className="share-actions-container">
-                    <div className="export-button">
-                        👥 Davet Et
-                        <div className="export-options">
-                            <button onClick={handleShareWhatsApp}>📱 WhatsApp ile Paylaş</button>
-                            <button onClick={() => setShowQRCode(true)}>📱 QR Kod Göster</button>
-                            <button onClick={handleCopyLink}>🔗 Linki Kopyala</button>
-                            <button onClick={handleShareGroup}>📤 Paylaş...</button>
-                        </div>
-                    </div>
-                    <button className="share-button" onClick={handleShareSummary}>Özet Paylaş</button>
-                    <button className="secondary-button" onClick={() => setShowRecurringExpenses(true)} title="Tekrarlayan Harcamalar">
-                        🔁 Tekrarlayan
-                    </button>
-                    <div className="export-button">
-                        Dışa Aktar
-                        <div className="export-options">
-                            <button onClick={() => exportGroupToExcel(group)}>📊 Excel'e Aktar (.xlsx)</button>
-                            <button onClick={() => alert('PDF export özelliği yakında eklenecek!')}>📄 PDF Olarak Kaydet</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="total-expense">
-                <h3>Toplam Harcama</h3>
-                <p>{formatCurrency(totalExpenses)}</p>
-            </div>
-            <div className="detail-grid">
-                <div className="detail-card">
-                    <h3>Harcama Ekle</h3>
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group">
-                            <div className="label-container">
-                                <label htmlFor="description">Ne için?</label>
-                                <button type="button" className="icon-button" title="Fiş Tara" onClick={() => setIsScanning(true)}>📸</button>
-                            </div>
-                            <input type="text" id="description" name="description" placeholder="Market alışverişi" value={newExpense.description} onChange={handleInputChange} />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="category">Kategori</label>
-                            <select id="category" name="category" value={newExpense.category} onChange={handleInputChange}>
-                                <option value="food">🍔 Yemek</option>
-                                <option value="transportation">🚗 Ulaşım</option>
-                                <option value="bills">💡 Faturalar</option>
-                                <option value="rent">🏠 Kira</option>
-                                <option value="entertainment">🎬 Eğlence</option>
-                                <option value="shopping">🛍️ Alışveriş</option>
-                                <option value="health">🏥 Sağlık</option>
-                                <option value="education">📚 Eğitim</option>
-                                <option value="other">📦 Diğer</option>
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="amount">Tutar</label>
-                            <input type="number" id="amount" name="amount" placeholder="0,00" value={newExpense.amount} onChange={handleInputChange} step="0.01" />
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="paidBy">Kim ödedi?</label>
-                            <select id="paidBy" name="paidBy" value={newExpense.paidBy} onChange={handleInputChange}>
-                                {group.members.map(member => (
-                                    <option key={member.id} value={member.id}>{member.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label>Paylaşım Türü</label>
-                            <select name="splitType" value={newExpense.splitType} onChange={handleInputChange}>
-                                <option value="equal">Eşit Paylaş</option>
-                                <option value="unequal">Eşit Olmayan Paylaşım</option>
-                            </select>
-                        </div>
-
-                        {newExpense.splitType === 'unequal' && (
-                            <div className="form-group custom-splits">
-                                <label>Kişiye Özel Tutarlar</label>
-                                {group.members.map(member => {
-                                    const split = newExpense.splits.find(s => s.memberId === member.id) || { amount: '' };
-                                    return (
-                                        <div key={member.id} className="custom-split-item">
-                                            <span>{member.name}</span>
-                                            <input
-                                                type="number"
-                                                value={split.amount}
-                                                onChange={(e) => handleCustomSplitChange(member.id, e.target.value)}
-                                                placeholder="0,00"
-                                                step="0.01"
-                                            />
-                                        </div>
-                                    )
-                                })}
-                                <div className={`split-summary ${Math.abs(remainingToSplit) < 0.01 ? 'balanced' : 'unbalanced'}`}>
-                                    {Math.abs(remainingToSplit) < 0.01 ? 'Toplamlar Eşit' : `Kalan: ${formatCurrency(remainingToSplit)}`}
-                                </div>
-                            </div>
-                        )}
-
-                        {error && <p style={{ color: 'var(--danger-color)' }}>{error}</p>}
-                        <button type="submit" className="form-button" disabled={isFormInvalid}>Harcama Ekle</button>
-                    </form>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div className="detail-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <h3>Kim Kime Borçlu?</h3>
-                            {settlementSuggestions.length > 0 &&
-                                <button className="cta-button" style={{ padding: '8px 16px', fontSize: '0.9rem' }} onClick={() => onNavigate('settlement', group.id)}>
-                                    Hesaplaş
-                                </button>
-                            }
-                        </div>
-                         <ul className="balance-list">
-                            {balances.map(b => (
-                                <li key={b.name} className="balance-item">
-                                    <span>{b.name}</span>
-                                    <span className={b.balance >= 0 ? 'positive-balance' : 'negative-balance'}>
-                                        {formatCurrency(b.balance)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                        {settlementSuggestions.length > 0 && (
-                            <div className="settlement-suggestions">
-                                <h4>Ödeme Önerileri</h4>
-                                {settlementSuggestions.map((s, i) => <p key={i}>{s}</p>)}
-                            </div>
-                        )}
-                    </div>
-                    <div className="detail-card">
-                        <h3>Grup Üyeleri</h3>
-                        <ul className="member-list">
-                            {group.members.map(member => (
-                                <li key={member.id} className="member-list-item">
-                                    {member.name}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-
-                <div className="detail-card" style={{ gridColumn: '1 / -1' }}>
-                     <h3>Son Harcamalar</h3>
-                     {group.expenses.length === 0 ? <p>Henüz harcama yok.</p> : (
-                        <ul className="expense-list">
-                            {group.expenses.slice().reverse().map(expense => (
-                                <li key={expense.id} className="expense-item">
-                                    <div className="expense-info">
-                                        <p>
-                                            <span style={{ marginRight: '8px' }}>{getCategoryEmoji(expense.category || 'other')}</span>
-                                            {expense.description}
-                                        </p>
-                                        <p className="date">
-                                            {group.members.find(m => m.id === expense.paidBy)?.name} ödedi • {getCategoryName(expense.category || 'other')} • {formatDate(expense.date)}
-                                        </p>
-                                    </div>
-                                    <span className="expense-amount">{formatCurrency(expense.amount)}</span>
-                                </li>
-                            ))}
-                        </ul>
-                     )}
-                </div>
-            </div>
-            {showQRCode && (
-                <QRCodeModal
-                    groupId={group.id}
-                    groupName={group.name}
-                    onClose={() => setShowQRCode(false)}
-                />
-            )}
-            {showRecurringExpenses && (
-                <Suspense fallback={<LoadingSpinner />}>
-                    <RecurringExpenses
-                        group={group}
-                        currentUser={currentUser}
-                        onClose={() => setShowRecurringExpenses(false)}
-                    />
-                </Suspense>
-            )}
-        </div>
-    );
-}
-
-function SettlementScreen({ group, onNavigate, onPaymentClick }) {
-    const balances = useMemo(() => {
-        // FIX: Add type annotation to `memberBalances` to ensure correct type inference for `balances`.
-        const memberBalances: { [key: string]: { id: number; name: string; balance: number } } = {};
-        group.members.forEach(member => {
-            memberBalances[member.id] = { id: member.id, name: member.name, balance: 0 };
-        });
-        if (group.members.length === 0) return [];
-        group.expenses.forEach(expense => {
-            if (memberBalances[expense.paidBy]) {
-                memberBalances[expense.paidBy].balance += expense.amount;
-            }
-            if (expense.splitType === 'unequal' && expense.splits?.length > 0) {
-                expense.splits.forEach(split => {
-                    if (memberBalances[split.memberId]) {
-                        memberBalances[split.memberId].balance -= (split.amount || 0);
-                    }
-                });
-            } else {
-                const sharePerMember = expense.amount / group.members.length;
-                group.members.forEach(member => {
-                    memberBalances[member.id].balance -= sharePerMember;
-                });
-            }
-        });
-        return Object.values(memberBalances);
-    }, [group.expenses, group.members]);
-
-    const settlements = useMemo(() => calculateSettlements(balances), [balances]);
-
-    const [completedPayments, setCompletedPayments] = useState(() => Array(settlements.length).fill(false));
-
-    const handleMarkAsPaid = (index) => {
-        setCompletedPayments(prev => {
-            const newCompleted = [...prev];
-            newCompleted[index] = !newCompleted[index];
-            return newCompleted;
-        });
-    };
-
-    const handleWhatsAppReminder = (debtorName, creditorName, amount) => {
-        const message = `Selam ${debtorName}! Payça'daki "${group.name}" grubundan ${creditorName}'e olan ${formatCurrency(amount)} borcunu hatırlatmak istedim. Ödemeyi yapınca haber verir misin? Teşekkürler!`;
-        const encodedMessage = encodeURIComponent(message);
-        window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
-    };
-
-    return (
-        <div>
-            <div className="detail-header">
-                <h2>Hesaplaşma: {group.name}</h2>
-                <button onClick={() => onNavigate('groupDetail', group.id)} className="back-button">‹ Gruba Dön</button>
-            </div>
-            <div className="settlement-list">
-                {settlements.length === 0 ?
-                    <div className="detail-card" style={{ textAlign: 'center' }}>Tüm hesaplar eşit, ödenecek borç bulunmuyor.</div> :
-                    settlements.map((s, index) => (
-                        <div
-                            className={`settlement-card ${completedPayments[index] ? 'completed' : ''}`}
-                            key={index}
-                            onClick={() => {
-                                if (onPaymentClick) {
-                                    const payment = {
-                                        id: `payment-${group.id}-${index}`,
-                                        amount: s.amount,
-                                        from: { id: s.from.id.toString(), name: s.from.name },
-                                        to: { id: s.to.id.toString(), name: s.to.name },
-                                        status: completedPayments[index] ? 'completed' : 'pending',
-                                        createdAt: new Date().toISOString(),
-                                        completedAt: completedPayments[index] ? new Date().toISOString() : undefined,
-                                        groupName: group.name,
-                                    };
-                                    onPaymentClick(payment);
-                                }
-                            }}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <div className="settlement-card-header">
-                                <div className="settlement-info">
-                                    <span className="from">{s.from.name}</span>
-                                    <span style={{ margin: '0 8px' }}>→</span>
-                                    <span className="to">{s.to.name}</span>
-                                    <span style={{ marginLeft: '16px', color: 'var(--text-primary)' }}>{formatCurrency(s.amount)}</span>
-                                </div>
-                                <button
-                                    className={`action-button ${completedPayments[index] ? 'unpaid' : 'paid'}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleMarkAsPaid(index);
-                                    }}
-                                >
-                                    {completedPayments[index] ? 'Geri Al' : 'Ödendi'}
-                                </button>
-                            </div>
-                            {!completedPayments[index] &&
-                                <div className="settlement-actions" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                        className="action-button whatsapp"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleWhatsAppReminder(s.from.name, s.to.name, s.amount);
-                                        }}
-                                    >
-                                        WhatsApp ile Hatırlat
-                                    </button>
-                                    <div className="action-button other">
-                                        Diğer Yöntemler
-                                        <div className="payment-options">
-                                            <button onClick={(e) => { e.stopPropagation(); alert('Papara ile ödeme simülasyonu.'); }}>Papara ile Öde</button>
-                                            <button onClick={(e) => { e.stopPropagation(); alert('Banka transferi için QR kod oluşturuldu.'); }}>QR Kod Oluştur</button>
-                                            <button onClick={(e) => { e.stopPropagation(); alert('IBAN bilgisi paylaşıldı.'); }}>IBAN Paylaş</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    ))
-                }
-            </div>
-        </div>
-    );
-}
-
-function AnalyticsScreen({ groups, currentUser, onNavigate, setShowAIAdvisor }) {
-    const [budget, setBudget] = useState(2000);
-
-    // FIX: Correctly calculate the user's personal *share* of each expense for accurate analytics.
-    const userShares = useMemo(() => {
-        const allShares: any[] = [];
-        groups.forEach(group => {
-            group.expenses.forEach(expense => {
-                const memberCount = group.members.length;
-                if (memberCount === 0) return;
-
-                let userShareAmount = 0;
-
-                if (expense.splitType === 'unequal' && expense.splits?.length > 0) {
-                    const userSplit = expense.splits.find(s => s.memberId === currentUser.id);
-                    if (userSplit) {
-                        userShareAmount = userSplit.amount || 0;
-                    }
-                } else { // Equal split by default
-                    userShareAmount = expense.amount / memberCount;
-                }
-
-                if (userShareAmount > 0) {
-                    allShares.push({
-                        id: `${group.id}-${expense.id}`,
-                        description: expense.description,
-                        date: expense.date,
-                        amount: userShareAmount, // This is the user's actual share
-                        groupName: group.name,
-                    });
-                }
-            });
-        });
-        return allShares;
-    }, [groups, currentUser.id]);
-
-
-    const monthlySpending = useMemo(() => {
-        const data = Array(6).fill(0).map((_, i) => {
-            const d = new Date();
-            d.setMonth(d.getMonth() - i);
-            return { month: d.toLocaleString('tr-TR', { month: 'short' }), total: 0 };
-        }).reverse();
-
-        userShares.forEach(share => {
-            const expenseDate = new Date(share.date);
-            const monthKey = expenseDate.toLocaleString('tr-TR', { month: 'short' });
-            const monthData = data.find(d => d.month === monthKey);
-            if (monthData) {
-                monthData.total += share.amount;
-            }
-        });
-
-        return data;
-    }, [userShares]);
-
-    const currentMonthSpending = monthlySpending[monthlySpending.length - 1]?.total || 0;
-    const prevMonthSpending = monthlySpending[monthlySpending.length - 2]?.total || 0;
-    const monthComparison = prevMonthSpending > 0
-        ? ((currentMonthSpending - prevMonthSpending) / prevMonthSpending) * 100
-        : (currentMonthSpending > 0 ? 100 : 0);
-
-    const getCategoryFromDescription = useCallback((desc) => {
-        const lowerDesc = desc.toLowerCase();
-        if (lowerDesc.includes('market') || lowerDesc.includes('migros') || lowerDesc.includes('a101') || lowerDesc.includes('yemek')) return 'Yemek';
-        if (lowerDesc.includes('fatura')) return 'Faturalar';
-        if (lowerDesc.includes('taksi') || lowerDesc.includes('ulaşım')) return 'Ulaşım';
-        if (lowerDesc.includes('sinema') || lowerDesc.includes('eğlence')) return 'Eğlence';
-        return 'Diğer';
-    }, []);
-
-    const categorySpending = useMemo(() => {
-        const spending: { [key: string]: number } = {};
-        userShares.forEach(share => {
-            const category = getCategoryFromDescription(share.description);
-            if (!spending[category]) {
-                spending[category] = 0;
-            }
-            spending[category] += share.amount;
-        });
-        return Object.entries(spending)
-            .map(([name, total]) => ({ name, total: total as number }))
-            .sort((a, b) => b.total - a.total);
-    }, [userShares, getCategoryFromDescription]);
-
-    const pieChartData = useMemo(() => {
-        const total = categorySpending.reduce((sum, cat) => sum + cat.total, 0);
-        if (total === 0) return { gradient: '', legend: [] };
-
-        const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#10b981'];
-        let cumulativePercent = 0;
-        const gradientParts = [];
-        const legend = [];
-
-        categorySpending.slice(0, 5).forEach((cat, i) => {
-            const percent = (cat.total / total) * 100;
-            const color = colors[i % colors.length];
-            gradientParts.push(`${color} ${cumulativePercent}% ${cumulativePercent + percent}%`);
-            legend.push({ name: cat.name, color, total: cat.total });
-            cumulativePercent += percent;
-        });
-
-        return {
-            gradient: `conic-gradient(${gradientParts.join(', ')})`,
-            legend
-        };
-    }, [categorySpending]);
-
-    const budgetUsage = budget > 0 ? (currentMonthSpending / budget) * 100 : 0;
-    
-    const groupOne = groups.length > 0 ? groups[0] : null;
-    const groupOneAverage = groupOne && groupOne.members.length > 0
-        ? groupOne.expenses.reduce((s, e) => s + e.amount, 0) / groupOne.members.length
-        : 0;
-
-    return (
-        <div>
-            <div className="detail-header">
-                <h2>İstatistikler ({currentUser.name})</h2>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <button onClick={() => exportAllGroupsToExcel(groups)} className="secondary-button" style={{ fontSize: '0.9rem' }}>
-                        📊 Tüm Grupları Export Et
-                    </button>
-                    <button onClick={() => setShowAIAdvisor(true)} className="cta-button" style={{ fontSize: '0.9rem' }}>
-                        🤖 AI Danışman
-                    </button>
-                    <button onClick={() => onNavigate('dashboard')} className="back-button">‹ Geri</button>
-                </div>
-            </div>
-            <div className="analytics-grid">
-                <div className="detail-card stat-card">
-                     <h3>Aylık Harcama Dağılımı</h3>
-                     <div className="chart-container">
-                        <div className="bar-chart">
-                            {monthlySpending.map(data => {
-                                const maxVal = Math.max(...monthlySpending.map(m => m.total), 1);
-                                const height = (data.total / maxVal) * 100;
-                                return (
-                                    <div key={data.month} className="bar" style={{ height: `${height}%` }} title={`${data.month}: ${formatCurrency(data.total)}`}>
-                                       <div className="bar-label">{data.month}</div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                     </div>
-                     <div className="stat-summary">
-                        <p>Bu ay toplam harcaman:</p>
-                        <p className="stat-value">{formatCurrency(currentMonthSpending)}</p>
-                        <p className={`stat-comparison ${monthComparison >= 0 ? 'negative-balance' : 'positive-balance'}`}>
-                            Geçen aya göre %{Math.abs(monthComparison).toFixed(0)} {monthComparison >= 0 ? 'daha fazla' : 'daha az'}
-                        </p>
-                     </div>
-                </div>
-                 <div className="detail-card stat-card">
-                    <h3>Kategori Analizi</h3>
-                    <div className="pie-chart-container">
-                        <div className="pie-chart" style={{ background: pieChartData.gradient }}></div>
-                        <div className="pie-legend">
-                            <ul>
-                                {pieChartData.legend.map(item => (
-                                    <li key={item.name}>
-                                        <div className="legend-color-box" style={{ backgroundColor: item.color }}></div>
-                                        <span>{item.name}: {formatCurrency(item.total)}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                    <div className="insight-text">
-                        En çok harcadığın kategori: <strong>{categorySpending[0]?.name || 'Yok'}</strong>
-                    </div>
-                </div>
-                <div className="detail-card stat-card budget-tracker">
-                    <h3>Aylık Bütçe Takibi</h3>
-                    <div className="form-group">
-                        <label htmlFor="budget">Bütçeni Belirle (Aylık)</label>
-                        <input type="number" id="budget" value={budget} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} />
-                    </div>
-                     <div className="progress-bar-container">
-                        <div
-                            className="progress-bar"
-                            style={{
-                                width: `${Math.min(budgetUsage, 100)}%`,
-                                backgroundColor: budgetUsage > 80 ? 'var(--danger-color)' : (budgetUsage > 60 ? 'var(--warning-color)' : 'var(--success-color)')
-                            }}
-                        ></div>
-                    </div>
-                    <p style={{ textAlign: 'right', fontWeight: 600, marginTop: '8px' }}>
-                        {formatCurrency(currentMonthSpending)} / {formatCurrency(budget)} (%{budgetUsage.toFixed(0)})
-                    </p>
-                     {budgetUsage > 80 &&
-                        <div className="insight-text" style={{ borderColor: 'var(--danger-color)' }}>
-                            Uyarı: Bütçenin %80'inden fazlasını kullandın!
-                        </div>
-                     }
-                </div>
-                <div className="detail-card stat-card">
-                     <h3>Grup ve Ödeme Alışkanlıkları</h3>
-                     <p><strong>{groupOne ? groupOne.name : 'İlk Grup'}</strong> grubunda kişi başı ortalama harcama:</p>
-                     <p className="stat-value">{formatCurrency(groupOneAverage)}</p>
-                     <p className="stat-comparison positive-balance">Grup harcama verileri karşılaştırması yakında eklenecek.</p>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function OnboardingModal({ onComplete }) {
-    const [step, setStep] = useState(0);
-    const steps = [
-        { icon: '👋', title: 'Payça\'ya Hoş Geldin!', text: 'Masraflarını arkadaşlarınla kolayca bölüşmeye başla.' },
-        { icon: '👥', title: 'Grup Oluştur', text: 'Ev arkadaşların, tatil grubun veya arkadaşların için bir grup oluştur.' },
-        { icon: '💸', title: 'Harcama Ekle', text: 'Yaptığın harcamaları gruba ekle, kimin ödediğini ve nasıl bölüşüleceğini belirt.' },
-        { icon: '🤝', title: 'Hesaplaş', text: 'Kim kime ne kadar borçlu anında gör ve kolayca hesaplaş.' }
-    ];
-
-    const currentStep = steps[step];
-
-    return (
-        <div className="modal-overlay">
-            <div className="modal-content onboarding-content">
-                <div className="onboarding-icon">{currentStep.icon}</div>
-                <h2>{currentStep.title}</h2>
-                <p>{currentStep.text}</p>
-                <div className="onboarding-dots">
-                    {steps.map((_, index) => (
-                        <div key={index} className={`onboarding-dot ${index === step ? 'active' : ''}`}></div>
-                    ))}
-                </div>
-                <div className="onboarding-actions">
-                    {step > 0 ? (
-                        <button className="secondary-button" onClick={() => setStep(s => s - 1)}>Geri</button>
-                    ) : <div></div>}
-                    {step < steps.length - 1 ? (
-                        <button className="cta-button" onClick={() => setStep(s => s + 1)}>İleri</button>
-                    ) : (
-                        <button className="cta-button" onClick={onComplete}>Başla!</button>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function HelpFeedbackModal({ user, onUpdateUser, onClose, onResetData, onLogout, theme, onThemeChange }) {
-    const [activeTab, setActiveTab] = useState('help');
-    const [rating, setRating] = useState(0);
-    const [feedback, setFeedback] = useState('');
-    const [profileName, setProfileName] = useState(user.name);
-
-    const handleProfileSave = (e) => {
-        e.preventDefault();
-        onUpdateUser({ name: profileName });
-        onClose();
-    };
-    
-    const handleFeedbackSubmit = (e) => {
-        e.preventDefault();
-        alert('Geri bildiriminiz için teşekkürler!');
-        setRating(0);
-        setFeedback('');
-    };
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <button className="modal-close-button" onClick={onClose}>&times;</button>
-                <div className="modal-tabs">
-                    <button className={`modal-tab ${activeTab === 'help' ? 'active' : ''}`} onClick={() => setActiveTab('help')}>Yardım (SSS)</button>
-                    <button className={`modal-tab ${activeTab === 'feedback' ? 'active' : ''}`} onClick={() => setActiveTab('feedback')}>Geri Bildirim</button>
-                    <button className={`modal-tab ${activeTab === 'profile' ? 'active' : ''}`} onClick={() => setActiveTab('profile')}>Profil & Ayarlar</button>
-                </div>
-                {activeTab === 'help' && (
-                    <div>
-                        <h3>Sıkça Sorulan Sorular</h3>
-                        <details className="faq-item">
-                            <summary>Payça nasıl çalışır?</summary>
-                            <p>Bir grup oluşturun, üyeleri ekleyin, harcamaları girin. Payça kimin kime ne kadar borçlu olduğunu otomatik hesaplar.</p>
-                        </details>
-                        <details className="faq-item">
-                            <summary>Verilerim güvende mi?</summary>
-                            <p>Evet, tüm verileriniz yalnızca sizin tarayıcınızda, yerel olarak saklanır. Sunucularımızda kişisel harcama verisi tutmuyoruz.</p>
-                        </details>
-                         <details className="faq-item">
-                            <summary>Uygulamayı nasıl yüklerim?</summary>
-                            <p>Tarayıcınızın menüsünden "Ana Ekrana Ekle" seçeneğini kullanarak Payça'yı bir uygulama gibi kullanabilirsiniz.</p>
-                        </details>
-                    </div>
-                )}
-                {activeTab === 'feedback' && (
-                    <div>
-                        <h3>Geri Bildirim</h3>
-                        <form onSubmit={handleFeedbackSubmit}>
-                            <p>Uygulamamızı değerlendirin:</p>
-                             <div className="star-rating">
-                                {[1, 2, 3, 4, 5].map(star => (
-                                    <span key={star} className={`star ${star <= rating ? 'selected' : ''}`} onClick={() => setRating(star)}>★</span>
-                                ))}
-                            </div>
-                            <div className="form-group">
-                                <label htmlFor="feedbackText">Görüşleriniz:</label>
-                                <textarea id="feedbackText" value={feedback} onChange={e => setFeedback(e.target.value)} placeholder="Uygulamayı daha iyi hale getirmemize yardımcı olun..."></textarea>
-                            </div>
-                            <button type="submit" className="form-button">Gönder</button>
-                        </form>
-                    </div>
-                )}
-                 {activeTab === 'profile' && (
-                    <div>
-                        <h3>Profil & Ayarlar</h3>
-                        <form onSubmit={handleProfileSave}>
-                            <div className="form-group">
-                                <label htmlFor="profileName">Ad Soyad</label>
-                                <input id="profileName" type="text" value={profileName} onChange={e => setProfileName(e.target.value)} />
-                            </div>
-                            <button type="submit" className="form-button">Kaydet</button>
-                        </form>
-                        <div style={{marginTop: '24px'}}>
-                            <h4 style={{marginBottom: '12px'}}>Tema Seçimi</h4>
-                            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px'}}>
-                                <button
-                                    type="button"
-                                    onClick={() => onThemeChange('light')}
-                                    className={`theme-option ${theme === 'light' ? 'active' : ''}`}
-                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'light' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
-                                >
-                                    ☀️ Açık
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onThemeChange('dark')}
-                                    className={`theme-option ${theme === 'dark' ? 'active' : ''}`}
-                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'dark' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
-                                >
-                                    🌙 Koyu
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onThemeChange('midnight')}
-                                    className={`theme-option ${theme === 'midnight' ? 'active' : ''}`}
-                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'midnight' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
-                                >
-                                    🌃 Gece Yarısı
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onThemeChange('sepia')}
-                                    className={`theme-option ${theme === 'sepia' ? 'active' : ''}`}
-                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'sepia' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
-                                >
-                                    📜 Sepya
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => onThemeChange('forest')}
-                                    className={`theme-option ${theme === 'forest' ? 'active' : ''}`}
-                                    style={{padding: '12px', border: '2px solid', borderColor: theme === 'forest' ? 'var(--primary-color)' : 'var(--border-color)', borderRadius: '8px', background: 'var(--surface-color-light)', cursor: 'pointer'}}
-                                >
-                                    🌲 Orman
-                                </button>
-                            </div>
-                        </div>
-                        <div style={{marginTop: '24px', borderTop: '1px solid var(--border-color)', paddingTop: '16px'}}>
-                            <h4>Tehlikeli Alan</h4>
-                            <button onClick={onResetData} className="form-button" style={{background: 'var(--danger-color)', width: '100%', marginBottom: '12px'}}>Tüm Verileri Sıfırla</button>
-                            <button onClick={onLogout} className="secondary-button" style={{width: '100%'}}>Çıkış Yap</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// Bottom Navigation Component (Mobile)
-function BottomNavigation({ activeTab, onTabChange, onNavigate }) {
-    const tabs = [
-        { id: 'home', icon: '🏠', label: 'Ana', view: 'dashboard' },
-        { id: 'analytics', icon: '📊', label: 'Analiz', view: 'analytics' },
-        { id: 'groups', icon: '💰', label: 'Gruplar', view: 'dashboard' },
-        { id: 'settings', icon: '⚙️', label: 'Ayarlar', view: 'settings' }
-    ];
-
-    const handleTabClick = (tab) => {
-        onTabChange(tab.id);
-        if (tab.view) {
-            onNavigate(tab.view);
-        }
-    };
-
-    return (
-        <nav className="bottom-navigation">
-            {tabs.map((tab) => (
-                <button
-                    key={tab.id}
-                    className={`bottom-nav-item ${activeTab === tab.id ? 'active' : ''}`}
-                    onClick={() => handleTabClick(tab)}
-                    aria-label={tab.label}
-                >
-                    <span className="bottom-nav-icon">{tab.icon}</span>
-                    <span className="bottom-nav-label">{tab.label}</span>
-                </button>
-            ))}
-        </nav>
-    );
-}
-
-// Floating Action Button (FAB) with Extended Menu
-function FloatingActionButton({ expanded, onToggle, onAction }) {
-    const actions = [
-        { id: 'advisor', icon: '🤖', label: 'AI Danışman', color: '#10b981' },
-        { id: 'scan', icon: '📷', label: 'Fatura Tara', color: '#8b5cf6' },
-        { id: 'expense', icon: '💰', label: 'Harcama Ekle', color: '#6366f1' },
-        { id: 'group', icon: '👥', label: 'Grup Oluştur', color: '#ec4899' }
-    ];
-
-    const handleAction = (actionId) => {
-        onAction(actionId);
-        onToggle(); // Close menu after action
-    };
-
-    return (
-        <div className="fab-container">
-            {expanded && (
-                <>
-                    <div className="fab-backdrop" onClick={onToggle}></div>
-                    <div className="fab-menu">
-                        {actions.map((action, index) => (
-                            <button
-                                key={action.id}
-                                className="fab-menu-item"
-                                onClick={() => handleAction(action.id)}
-                                style={{
-                                    animationDelay: `${index * 50}ms`,
-                                    backgroundColor: action.color
-                                }}
-                            >
-                                <span className="fab-menu-icon">{action.icon}</span>
-                                <span className="fab-menu-label">{action.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </>
-            )}
-            <button
-                className={`fab ${expanded ? 'fab-expanded' : ''}`}
-                onClick={onToggle}
-                aria-label={expanded ? 'Kapat' : 'Hızlı Menü'}
-            >
-                <span className="fab-icon">{expanded ? '✕' : '+'}</span>
+            <button className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-wide shadow-lg shadow-primary/30">
+              <span className="truncate">İndir</span>
             </button>
+          </div>
         </div>
-    );
-}
+      </header>
 
-function AppFooter() {
-    return (
-        <footer className="app-footer">
-            <p>© {new Date().getFullYear()} Payça. Tüm hakları saklıdır.</p>
-            <div>
-                <a href="#">Gizlilik Politikası</a>
-                <a href="#">Kullanım Koşulları</a>
+      {/* Hero Section */}
+      <main className="container mx-auto">
+        <div className="relative flex min-h-[90vh] w-full flex-col justify-center items-center px-5 py-10 text-center">
+          <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(79,70,229,0.3),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,rgba(79,70,229,0.4),rgba(17,24,39,0))]"></div>
+          <div className="flex flex-col gap-8 items-center">
+            <div className="flex flex-col gap-4">
+              <h1 className="text-text-light dark:text-text-dark text-4xl font-black leading-tight tracking-tighter md:text-6xl">
+                Masrafları Kolayca Paylaş, Keyfini Çıkar!
+              </h1>
+              <h2 className="text-text-secondary-light dark:text-text-secondary-dark text-base font-medium leading-normal md:text-lg">
+                Grup gezileri, akşam yemekleri ve etkinlikler artık stressiz.
+              </h2>
             </div>
-        </footer>
-    );
-}
+            <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+              <button className="flex w-full sm:w-auto min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-wide shadow-lg shadow-primary/40 transition-transform hover:scale-105">
+                <span className="truncate">Uygulamayı İndir</span>
+              </button>
+              <button className="flex w-full sm:w-auto min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary/10 dark:bg-primary/20 text-primary text-base font-bold leading-normal tracking-wide transition-transform hover:scale-105">
+                <span className="truncate">Hemen Başla</span>
+              </button>
+            </div>
+            <div className="w-full max-w-lg pt-8">
+              <img
+                className="rounded-xl shadow-2xl"
+                alt="Friends managing finances together on phones, with charts and icons floating around them representing shared expenses."
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtTesyPgZY79sLkmS5z3sOiCjAVnzrVg-YfhJQGfzTds-jSPulbaFAxWusuh2fvMUE_Nz9cfUZzqZJXQcJdAP1RLSRQZRrvj7ky7Dr2CywSH5VPAIvEElLwmrs_usenZMrsRCi7TTNC689nQ9cI9WAq1NHslJgCWKICN_y1XVKFQfJW6ZXgszUl3eiEAobH7nM4fE1GDoymHAjFMkK7opuTMBQbecAxOqEQnK_DzdTUzmtPIqA9PRbPzQiGu_sJ8SE69iKFRG5irhI"
+              />
+            </div>
+          </div>
+        </div>
 
-const rootElement = document.getElementById('root');
-if (rootElement) {
-    const root = ReactDOM.createRoot(rootElement);
-    root.render(
-        <React.StrictMode>
-            <ErrorBoundary>
-                <AuthProvider>
-                    <App />
-                    <Analytics />
-                    <SpeedInsights />
-                </AuthProvider>
-            </ErrorBoundary>
-        </React.StrictMode>
-    );
-}
+        {/* How It Works Section */}
+        <section className="px-5 py-16 sm:py-24">
+          <h2 className="text-text-light dark:text-text-dark text-3xl font-bold leading-tight tracking-tight text-center mb-12">
+            Nasıl Çalışır?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center gap-4 rounded-xl p-6">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-3xl">group_add</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-lg font-bold leading-tight">Grup Oluştur</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-normal leading-normal">
+                  Saniyeler içinde bir grup oluşturun ve arkadaşlarınızı davet edin.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-center text-center gap-4 rounded-xl p-6">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-3xl">receipt_long</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-lg font-bold leading-tight">Masraf Ekle</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-normal leading-normal">
+                  Tüm ortak harcamaları kolayca uygulamaya ekleyin.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-center text-center gap-4 rounded-xl p-6">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary">
+                <span className="material-symbols-outlined text-3xl">swap_horiz</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-lg font-bold leading-tight">Bölüş & Öde</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-base font-normal leading-normal">
+                  Kim kime ne kadar borçlu anında görün ve ödeyin.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Key Features Section */}
+        <section className="px-5 py-16 sm:py-24 bg-white dark:bg-background-dark/50 rounded-xl">
+          <h2 className="text-text-light dark:text-text-dark text-3xl font-bold leading-tight tracking-tight text-center mb-12">
+            Öne Çıkan Özellikler
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-6">
+              <div className="text-primary">
+                <span className="material-symbols-outlined text-3xl">notifications_active</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-base font-bold leading-tight">Anlık Bildirimler</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-normal leading-normal">
+                  Gruptaki her hareketten anında haberdar olun.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-6">
+              <div className="text-primary">
+                <span className="material-symbols-outlined text-3xl">language</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-base font-bold leading-tight">Farklı Para Birimleri</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-normal leading-normal">
+                  Yurt dışı seyahatleriniz için para birimi desteği.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-6">
+              <div className="text-primary">
+                <span className="material-symbols-outlined text-3xl">shield</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-base font-bold leading-tight">Güvenli Ödemeler</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-normal leading-normal">
+                  Tüm işlemleriniz en yüksek güvenlik standartlarıyla korunur.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-background-light dark:bg-background-dark p-6">
+              <div className="text-primary">
+                <span className="material-symbols-outlined text-3xl">monitoring</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <h3 className="text-text-light dark:text-text-dark text-base font-bold leading-tight">Harcama Geçmişi</h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm font-normal leading-normal">
+                  Tüm geçmiş harcamalarınızı ve özetleri görüntüleyin.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Social Proof Section */}
+        <section className="px-5 py-16 sm:py-24">
+          <div className="max-w-2xl mx-auto text-center">
+            <figure>
+              <blockquote className="text-xl font-medium text-text-light dark:text-text-dark">
+                <p>"Payça sayesinde tatil masraflarımızı bölüşmek kabus olmaktan çıktı. Her şey o kadar basit ve şeffaf ki, herkese tavsiye ederim!"</p>
+              </blockquote>
+              <figcaption className="mt-6">
+                <div className="flex items-center justify-center gap-2 text-base text-text-secondary-light dark:text-text-secondary-dark">
+                  <span className="font-semibold text-text-light dark:text-text-dark">Ayşe Yılmaz</span> - Aktif Kullanıcı
+                </div>
+              </figcaption>
+            </figure>
+            <div className="mt-12 flex justify-center items-center gap-6 flex-wrap">
+              <div className="flex items-center gap-2">
+                <img
+                  className="h-8"
+                  alt="Apple App Store logo"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDlNurevuYdNmAall8oTRjQzYM-7pK8I0sCG97bfXAC0y9gP2gWjjy76cURxq8TuJryMhMo1ixp3PU5tUIhmZXzTaOlUER7kqjnuBuJQEIu3-GI2SmHvojAPv4M15RSAKT7Dl1G86lgTnUg9KwTalcNfcj_i1rP5qVZgv170JvCRcUU9iP2geRt19bSGBO-WaJixu5UfkTDuzM1k5e3P-krpSDGqTw_vZnKudYE-Y53JnxSn1rppTT3Tga9OFhL1_wiMn1AHsS0xkA5"
+                />
+                <div className="flex flex-col items-start">
+                  <div className="flex text-amber-400">
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star_half</span>
+                  </div>
+                  <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">4.8 Derecelendirme</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <img
+                  className="h-8"
+                  alt="Google Play Store logo"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuBuJwP09RQ6BMaFAO-DxfAjtb1krGCoU5xHSkB7RDjTJR5RwTWkLXOXtV8ZiD88Ahf9Bwi-VaQTitPC6cUfhy7bDtbkagpSdfUCkKAMfHMg4WrnUrQQ7MKvkHAcSqK71YEMSFDci0fm2dmZkHl-QMOetJ8A-8ZHmyOdqkTyLA-gEP__cKrDEXuHJqFF3NZZkO41C89lI1E7ltZOdB79CRAdSJRo7CWygJXYJ4sPHBqUV7m8FpCbpGzBdwOtM_Jm0HajuOFZIpkIXhJW"
+                />
+                <div className="flex flex-col items-start">
+                  <div className="flex text-amber-400">
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                    <span className="material-symbols-outlined text-lg">star</span>
+                  </div>
+                  <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">4.9 Derecelendirme</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Final CTA Section */}
+        <section className="px-5 py-16 sm:py-24">
+          <div className="bg-primary/90 dark:bg-primary/80 rounded-xl p-8 sm:p-12 text-center flex flex-col items-center gap-6">
+            <h2 className="text-white text-3xl font-bold leading-tight tracking-tight">
+              Harcamaları Yönetmeye Hazır mısınız?
+            </h2>
+            <p className="text-lg text-white/80 max-w-xl">
+              Hemen Payça'yı indirin ve grup harcamalarınızı kolayca yönetin. Stresi bırakın, anın tadını çıkarın!
+            </p>
+            <button className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-white text-primary text-base font-bold leading-normal tracking-wide shadow-lg transition-transform hover:scale-105">
+              <span className="truncate">Uygulamayı Şimdi İndir</span>
+            </button>
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <footer className="bg-background-light dark:bg-background-dark border-t border-gray-200 dark:border-gray-800">
+        <div className="container mx-auto px-5 py-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              © 2024 Payça. Tüm hakları saklıdır.
+            </p>
+            <div className="flex gap-6 text-sm">
+              <a className="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary" href="#">
+                Gizlilik Politikası
+              </a>
+              <a className="text-text-secondary-light dark:text-text-secondary-dark hover:text-primary" href="#">
+                Kullanım Şartları
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+// Render the app
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+root.render(
+  <React.StrictMode>
+    <LandingPage />
+  </React.StrictMode>
+);

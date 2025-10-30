@@ -54,13 +54,12 @@ body {
     background-color: var(--bg-color);
     color: var(--text-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
+    min-height: max(884px, 100dvh);
 }
 
 #root {
-    padding: 20px;
+    padding: 0;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
 }
 main {
     flex-grow: 1;
