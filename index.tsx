@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
+import { OnboardingModal } from './src/components/OnboardingModal';
 
 // Settlement Item Type
 interface Settlement {
@@ -793,18 +794,40 @@ const LandingPage = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
 const App = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const handleLogin = () => {
     setIsLoggedIn(true);
+    setShowOnboarding(true); // Show onboarding modal after login
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setIsAuthModalOpen(false);
+    setShowOnboarding(false);
+  };
+
+  const handleCloseOnboarding = () => {
+    setShowOnboarding(false);
+  };
+
+  const handleExploreOnboarding = () => {
+    setShowOnboarding(false);
+    // Could navigate to analytics or a specific feature here
   };
 
   if (isLoggedIn) {
-    return <SettlementScreen onLogout={handleLogout} />;
+    return (
+      <>
+        <SettlementScreen onLogout={handleLogout} />
+        {showOnboarding && (
+          <OnboardingModal
+            onClose={handleCloseOnboarding}
+            onExplore={handleExploreOnboarding}
+          />
+        )}
+      </>
+    );
   }
 
   return (

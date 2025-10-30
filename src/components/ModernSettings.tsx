@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BottomNav } from './BottomNav';
+import { HelpFeedbackModal } from './HelpFeedbackModal';
 
 export interface ModernSettingsProps {
   user: {
@@ -46,6 +47,7 @@ export function ModernSettings({
 }: ModernSettingsProps) {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showThemeModal, setShowThemeModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
@@ -111,8 +113,8 @@ export function ModernSettings({
     items: [
       {
         icon: 'help_center',
-        label: 'Yardım Merkezi',
-        onClick: () => window.open('https://github.com/rumelialimehmet-web/Payca-app/issues', '_blank'),
+        label: 'Yardım Merkezi & Geri Bildirim',
+        onClick: () => setShowHelpModal(true),
         showChevron: true
       },
       {
@@ -385,6 +387,11 @@ export function ModernSettings({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Help & Feedback Modal */}
+      {showHelpModal && (
+        <HelpFeedbackModal onClose={() => setShowHelpModal(false)} />
       )}
     </>
   );
