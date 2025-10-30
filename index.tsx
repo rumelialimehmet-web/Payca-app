@@ -1,8 +1,354 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 
+// Settlement Item Type
+interface Settlement {
+  id: string;
+  name: string;
+  amount: number;
+  type: 'debt' | 'credit';
+  group: string;
+  category: string;
+  avatar?: string;
+}
+
+// Analytics Screen Component
+const AnalyticsScreen = () => {
+  const categories = [
+    { name: 'Yemek', emoji: '🍕', amount: 1207.50, percent: 35, color: 'bg-blue-500' },
+    { name: 'Ulaşım', emoji: '🚗', amount: 862.50, percent: 25, color: 'bg-green-500' },
+    { name: 'Market', emoji: '🛒', amount: 690, percent: 20, color: 'bg-yellow-500' },
+    { name: 'Diğer', emoji: '🎁', amount: 690, percent: 20, color: 'bg-purple-500' }
+  ];
+
+  const topSpenders = [
+    { name: 'Eren Yan', amount: 1850, avatar: '👨', percent: 54 },
+    { name: 'Ayşe Yılmaz', amount: 950, avatar: '👩', percent: 28 },
+    { name: 'Mehmet Kaya', amount: 650, avatar: '👨‍💼', percent: 19 }
+  ];
+
+  const dailySpending = [
+    { day: 'Pzt', amount: 450 },
+    { day: 'Sal', amount: 620 },
+    { day: 'Çar', amount: 380 },
+    { day: 'Per', amount: 720 },
+    { day: 'Cum', amount: 550 },
+    { day: 'Cmt', amount: 430 },
+    { day: 'Paz', amount: 300 }
+  ];
+
+  const maxAmount = Math.max(...dailySpending.map(d => d.amount));
+  const totalSpending = 3450;
+
+  return (
+    <div className="px-5 py-6 max-w-4xl mx-auto">
+      {/* Period Filter */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Harcama Analizleri</h2>
+        <select className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium">
+          <option>Bu Ay</option>
+          <option>Geçen Ay</option>
+          <option>Son 3 Ay</option>
+          <option>Son 6 Ay</option>
+        </select>
+      </div>
+
+      {/* Total Spending Card */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <span className="material-symbols-outlined text-primary text-2xl">payments</span>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Toplam Harcama</p>
+        </div>
+        <p className="text-4xl font-bold text-gray-900 dark:text-white">{totalSpending}₺</p>
+      </div>
+
+      {/* Category Distribution */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Kategori Dağılımı</h3>
+        <div className="space-y-4">
+          {categories.map((cat, idx) => (
+            <div key={idx}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{cat.emoji}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{cat.name}</span>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">{cat.amount}₺</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{cat.percent}%</p>
+                </div>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className={`${cat.color} h-2 rounded-full`} style={{ width: `${cat.percent}%` }}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Spending Trends */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Harcama Trendi</h3>
+        <div className="flex items-end justify-between h-48 gap-2">
+          {dailySpending.map((day, idx) => (
+            <div key={idx} className="flex-1 flex flex-col items-center gap-2">
+              <div className="w-full bg-primary/20 rounded-t-lg transition-all hover:bg-primary/30"
+                   style={{ height: `${(day.amount / maxAmount) * 100}%` }}>
+              </div>
+              <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{day.day}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Top Spenders */}
+      <div className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
+        <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">En Çok Harcayanlar</h3>
+        <div className="space-y-4">
+          {topSpenders.map((spender, idx) => (
+            <div key={idx} className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl flex-shrink-0">
+                {spender.avatar}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">{spender.name}</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">{spender.amount}₺</span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div className="bg-primary h-2 rounded-full" style={{ width: `${spender.percent}%` }}></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Download Report Button */}
+      <button className="w-full h-14 rounded-xl text-white font-bold text-lg transition-transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(to right, #6366F1, #4F46E5)' }}>
+        <span className="material-symbols-outlined">download</span>
+        Rapor İndir (PDF/Excel)
+      </button>
+    </div>
+  );
+};
+
+// Settlement Screen Component
+const SettlementScreen = ({ onLogout }: { onLogout: () => void }) => {
+  const [selectedFilter, setSelectedFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'settlements' | 'analytics'>('settlements');
+
+  const settlements: Settlement[] = [
+    {
+      id: '1',
+      name: 'Eren Yan',
+      amount: 150.75,
+      type: 'debt',
+      group: 'İspanya Gezisi',
+      category: 'Seyahat',
+      avatar: '👨'
+    },
+    {
+      id: '2',
+      name: 'Ayşe Yılmaz',
+      amount: 25.50,
+      type: 'credit',
+      group: 'Ofis Öğle Yemeği',
+      category: 'Yemek',
+      avatar: '👩'
+    },
+    {
+      id: '3',
+      name: 'Mehmet Kaya',
+      amount: 20.00,
+      type: 'credit',
+      group: 'Sinema Biletleri',
+      category: 'Eğlence',
+      avatar: '👨‍💼'
+    }
+  ];
+
+  const filters = [
+    { id: 'all', label: 'Tüm Gruplar' },
+    { id: 'ispanya', label: 'İspanya Gezisi' },
+    { id: 'ofis', label: 'Ofis Öğle Yemeği' }
+  ];
+
+  const totalDebt = settlements
+    .filter(s => s.type === 'debt')
+    .reduce((sum, s) => sum + s.amount, 0);
+
+  const totalCredit = settlements
+    .filter(s => s.type === 'credit')
+    .reduce((sum, s) => sum + s.amount, 0);
+
+  return (
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div className="px-5 py-4">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              {activeTab === 'settlements' ? 'Borçlarım / Alacaklarım' : 'Harcama Analizleri'}
+            </h1>
+            <button
+              onClick={onLogout}
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary"
+            >
+              Çıkış
+            </button>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex gap-2 mb-4 border-b border-gray-200 dark:border-gray-800">
+            <button
+              onClick={() => setActiveTab('settlements')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === 'settlements'
+                  ? 'text-primary'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Hesaplaşma
+              {activeTab === 'settlements' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+                activeTab === 'analytics'
+                  ? 'text-primary'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              Analizler
+              {activeTab === 'analytics' && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+              )}
+            </button>
+          </div>
+
+          {/* Filter Chips (Only for Settlements Tab) */}
+          {activeTab === 'settlements' && (
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {filters.map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedFilter === filter.id
+                      ? 'bg-primary text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </header>
+
+      {/* Main Content */}
+      {activeTab === 'settlements' ? (
+        <main className="px-5 py-6 max-w-4xl mx-auto">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          {/* Total Debt */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-red-200 dark:border-red-900">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-red-500">trending_down</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Toplam Borç</p>
+            </div>
+            <p className="text-2xl font-bold text-red-500">₺{totalDebt.toFixed(2)}</p>
+          </div>
+
+          {/* Total Credit */}
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-green-200 dark:border-green-900">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-green-500">trending_up</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Toplam Alacak</p>
+            </div>
+            <p className="text-2xl font-bold text-green-500">₺{totalCredit.toFixed(2)}</p>
+          </div>
+        </div>
+
+        {/* Settle Now Button */}
+        <button
+          className="w-full h-14 rounded-xl text-white font-bold text-lg mb-6 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          style={{ background: 'linear-gradient(to right, #6366F1, #4F46E5)' }}
+        >
+          Hemen Hesaplaş
+        </button>
+
+        {/* Settlements List */}
+        <div className="space-y-3">
+          {settlements.map(settlement => (
+            <div
+              key={settlement.id}
+              className="bg-white dark:bg-gray-900 rounded-xl p-4 border border-gray-200 dark:border-gray-800 hover:border-primary dark:hover:border-primary transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                {/* Avatar and Info */}
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-2xl flex-shrink-0">
+                    {settlement.avatar}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                      {settlement.name}
+                    </h3>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {settlement.group}
+                      </span>
+                    </div>
+                    <p className={`text-lg font-bold ${
+                      settlement.type === 'debt' ? 'text-red-500' : 'text-green-500'
+                    }`}>
+                      {settlement.type === 'debt' ? '-' : '+'}₺{settlement.amount.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action Button */}
+                <button
+                  className={`px-4 py-2 rounded-lg font-semibold text-sm whitespace-nowrap transition-colors ${
+                    settlement.type === 'debt'
+                      ? 'bg-primary text-white hover:bg-primary/90'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  {settlement.type === 'debt' ? 'Öde' : 'Hatırlat'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Empty State (if no settlements) */}
+        {settlements.length === 0 && (
+          <div className="text-center py-12">
+            <span className="material-symbols-outlined text-6xl text-gray-300 dark:text-gray-700 mb-4">
+              account_balance_wallet
+            </span>
+            <p className="text-gray-600 dark:text-gray-400">
+              Henüz bir borç veya alacak yok
+            </p>
+          </div>
+        )}
+        </main>
+      ) : (
+        <AnalyticsScreen />
+      )}
+    </div>
+  );
+};
+
 // Auth Modal Component
-const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () => void; onLogin: () => void }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -14,6 +360,9 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log(isLogin ? 'Login' : 'Sign up', { email, password, name });
+    // Simulate successful login
+    onLogin();
+    onClose();
   };
 
   return (
@@ -135,6 +484,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
           <div className="space-y-3">
             <button
               type="button"
+              onClick={() => { onLogin(); onClose(); }}
               className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -148,6 +498,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
 
             <button
               type="button"
+              onClick={() => { onLogin(); onClose(); }}
               className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -177,9 +528,7 @@ const AuthModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
 };
 
 // Landing Page Component
-const LandingPage = () => {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-
+const LandingPage = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
   return (
     <div className="relative w-full overflow-x-hidden">
       {/* Header */}
@@ -206,7 +555,7 @@ const LandingPage = () => {
               <span className="text-2xl font-bold text-text-light dark:text-text-dark">Payça</span>
             </div>
             <button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={onOpenAuth}
               className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-wide shadow-lg shadow-primary/30 hover:scale-105 transition-transform"
             >
               <span className="truncate">Giriş Yap</span>
@@ -230,13 +579,13 @@ const LandingPage = () => {
             </div>
             <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
               <button
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={onOpenAuth}
                 className="flex w-full sm:w-auto min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-wide shadow-lg shadow-primary/40 transition-transform hover:scale-105"
               >
                 <span className="truncate">Uygulamayı İndir</span>
               </button>
               <button
-                onClick={() => setIsAuthModalOpen(true)}
+                onClick={onOpenAuth}
                 className="flex w-full sm:w-auto min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary/10 dark:bg-primary/20 text-primary text-base font-bold leading-normal tracking-wide transition-transform hover:scale-105"
               >
                 <span className="truncate">Hemen Başla</span>
@@ -409,7 +758,7 @@ const LandingPage = () => {
               Hemen Payça'yı indirin ve grup harcamalarınızı kolayca yönetin. Stresi bırakın, anın tadını çıkarın!
             </p>
             <button
-              onClick={() => setIsAuthModalOpen(true)}
+              onClick={onOpenAuth}
               className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-white text-primary text-base font-bold leading-normal tracking-wide shadow-lg transition-transform hover:scale-105"
             >
               <span className="truncate">Uygulamayı Şimdi İndir</span>
@@ -436,10 +785,37 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
-
-      {/* Auth Modal */}
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
+  );
+};
+
+// Main App Component
+const App = () => {
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setIsAuthModalOpen(false);
+  };
+
+  if (isLoggedIn) {
+    return <SettlementScreen onLogout={handleLogout} />;
+  }
+
+  return (
+    <>
+      <LandingPage onOpenAuth={() => setIsAuthModalOpen(true)} />
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onLogin={handleLogin}
+      />
+    </>
   );
 };
 
@@ -447,6 +823,6 @@ const LandingPage = () => {
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(
   <React.StrictMode>
-    <LandingPage />
+    <App />
   </React.StrictMode>
 );
