@@ -9,12 +9,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        'primary': '#4F46E5',
+        'primary': '#5348ea', // Updated to match Stitch design
         'accent': '#F59E0B',
         'success': '#10B981',
         'primary-light': '#EEF2FF',
-        'background-light': '#F9FAFB',
-        'background-dark': '#111827',
+        'background-light': '#f6f6f8', // Updated to match Stitch design
+        'background-dark': '#121121', // Updated to match Stitch design
         'text-primary': '#111827',
         'text-secondary': '#6B7280',
         'text-light': '#111827',
