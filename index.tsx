@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { OnboardingModal } from './src/components/OnboardingModal';
+import StitchHomePage from './src/components/StitchHomePage';
+import StitchExpenseForm from './src/components/StitchExpenseForm';
 
 // Settlement Item Type
 interface Settlement {
@@ -819,7 +821,7 @@ const App = () => {
   if (isLoggedIn) {
     return (
       <>
-        <SettlementScreen onLogout={handleLogout} />
+        <StitchHomePage />
         {showOnboarding && (
           <OnboardingModal
             onClose={handleCloseOnboarding}
