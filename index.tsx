@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
+import { User } from '@supabase/supabase-js';
 import { OnboardingModal } from './src/components/OnboardingModal';
 import StitchHomePage from './src/components/StitchHomePage';
 import StitchExpenseForm from './src/components/StitchExpenseForm';
+import { auth } from './src/lib/supabase';
 
 // Settlement Item Type
 interface Settlement {
@@ -351,21 +353,61 @@ const SettlementScreen = ({ onLogout }: { onLogout: () => void }) => {
 };
 
 // Auth Modal Component
-const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () => void; onLogin: () => void }) => {
+const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () => void; onLogin: (user: User) => void }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(isLogin ? 'Login' : 'Sign up', { email, password, name });
-    // Simulate successful login
-    onLogin();
-    onClose();
+    setLoading(true);
+    setError(null);
+
+    try {
+      if (isLogin) {
+        // Login
+        const { data, error: loginError } = await auth.signIn(email, password);
+        if (loginError) throw loginError;
+        if (data.user) {
+          onLogin(data.user);
+          onClose();
+        }
+      } else {
+        // Sign up
+        const { data, error: signupError } = await auth.signUp(email, password, name);
+        if (signupError) throw signupError;
+        if (data.user) {
+          onLogin(data.user);
+          onClose();
+        }
+      }
+    } catch (err: any) {
+      console.error('Auth error:', err);
+      setError(err.message || 'Bir hata oluştu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { error: googleError } = await auth.signInWithGoogle();
+      if (googleError) throw googleError;
+      // Google OAuth redirects, so we don't need to call onLogin here
+    } catch (err: any) {
+      console.error('Google sign in error:', err);
+      setError(err.message || 'Google ile giriş başarısız');
+      setLoading(false);
+    }
   };
 
   return (
@@ -398,6 +440,12 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
             </p>
           </div>
 
+          {error && (
+            <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 p-3">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Name Input (Only for Sign Up) */}
             {!isLogin && (
@@ -410,6 +458,7 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                   className="w-full rounded-lg h-12 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Adınız Soyadınız"
                   required={!isLogin}
+                  disabled={loading}
                 />
               </label>
             )}
@@ -424,6 +473,7 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                 className="w-full rounded-lg h-12 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="eposta@adresiniz.com"
                 required
+                disabled={loading}
               />
             </label>
 
@@ -438,6 +488,7 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
                   className="w-full rounded-lg h-12 pr-12 px-4 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Şifrenizi girin"
                   required
+                  disabled={loading}
                 />
                 <button
                   type="button"
@@ -464,10 +515,11 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full h-12 rounded-lg text-white font-semibold transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              disabled={loading}
+              className="w-full h-12 rounded-lg text-white font-semibold transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ background: 'linear-gradient(to right, #6366F1, #4F46E5)' }}
             >
-              {isLogin ? 'Giriş Yap' : 'Kaydol'}
+              {loading ? 'Yükleniyor...' : (isLogin ? 'Giriş Yap' : 'Kaydol')}
             </button>
           </form>
 
@@ -487,8 +539,9 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
           <div className="space-y-3">
             <button
               type="button"
-              onClick={() => { onLogin(); onClose(); }}
-              className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19.9895 10.1871C19.9895 9.36767 19.9214 8.76973 19.7742 8.14966H10.1992V11.848H15.8195C15.7062 12.7671 15.0943 14.1512 13.7346 15.0813L13.7155 15.2051L16.7429 17.4969L16.9527 17.5174C18.879 15.7789 19.9895 13.221 19.9895 10.1871Z" fill="#4285F4"/>
@@ -501,8 +554,9 @@ const AuthModal = ({ isOpen, onClose, onLogin }: { isOpen: boolean; onClose: () 
 
             <button
               type="button"
-              onClick={() => { onLogin(); onClose(); }}
-              className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 h-12 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M16.3408 10.7251C16.3306 8.97632 17.6141 8.13816 17.6754 8.09868C16.859 6.92763 15.5959 6.77303 15.1367 6.76316C13.9998 6.63816 12.9037 7.44737 12.3265 7.44737C11.7391 7.44737 10.8322 6.77303 9.87755 6.79276C8.64898 6.81249 7.50347 7.54276 6.87245 8.68421C5.57959 11.0039 6.54408 14.4868 7.79694 16.3987C8.42347 17.3355 9.16327 18.3816 10.1281 18.3454C11.0623 18.3092 11.4193 17.7382 12.5357 17.7382C13.6419 17.7382 13.9692 18.3454 14.9442 18.3257C15.949 18.3092 16.5876 17.3849 17.1938 16.4382C17.9031 15.3618 18.199 14.3059 18.2092 14.2467C18.1887 14.2368 16.3509 13.5263 16.3408 10.7251Z" fill="currentColor"/>
@@ -795,18 +849,51 @@ const LandingPage = ({ onOpenAuth }: { onOpenAuth: () => void }) => {
 // Main App Component
 const App = () => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
+  // Check for existing session on mount
+  useEffect(() => {
+    checkSession();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const checkSession = async () => {
+    try {
+      const { data } = await auth.getSession();
+      setUser(data.session?.user ?? null);
+    } catch (error) {
+      console.error('Session check error:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = (loggedInUser: User) => {
+    setUser(loggedInUser);
     setShowOnboarding(true); // Show onboarding modal after login
   };
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setIsAuthModalOpen(false);
-    setShowOnboarding(false);
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      setUser(null);
+      setIsAuthModalOpen(false);
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const handleCloseOnboarding = () => {
@@ -818,10 +905,21 @@ const App = () => {
     // Could navigate to analytics or a specific feature here
   };
 
-  if (isLoggedIn) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+          <p className="text-gray-600 dark:text-gray-400">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user) {
     return (
       <>
-        <StitchHomePage />
+        <StitchHomePage user={user} onLogout={handleLogout} />
         {showOnboarding && (
           <OnboardingModal
             onClose={handleCloseOnboarding}
