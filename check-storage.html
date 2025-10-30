@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payça - LocalStorage Kontrol</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #4F46E5;
+            margin-bottom: 20px;
+        }
+        .storage-item {
+            background: #f9fafb;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4F46E5;
+        }
+        .key {
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #4b5563;
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .empty {
+            color: #9ca3af;
+            font-style: italic;
+        }
+        button {
+            background: #4F46E5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4338ca;
+        }
+        .warning {
+            background: #fef3c7;
+            border-left-color: #f59e0b;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #f59e0b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Payça LocalStorage Kontrol Aracı</h1>
+        <p>Bu araç, tarayıcınızda saklanan Payça verilerini görüntüler.</p>
+
+        <div style="margin: 20px 0;">
+            <button onclick="loadStorage()">🔄 Verileri Yenile</button>
+            <button onclick="exportData()">💾 Verileri İndir (Yedek)</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function loadStorage() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+
+            // Find all Payça-related keys
+            const paycaKeys = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.startsWith('payca') || key.includes('group') || key.includes('recurring'))) {
+                    paycaKeys.push(key);
+                }
+            }
+
+            if (paycaKeys.length === 0) {
+                results.innerHTML = '<div class="empty">❌ Hiç Payça verisi bulunamadı!</div>';
+                results.innerHTML += '<div class="warning"><strong>⚠️ Uyarı:</strong> LocalStorage\'da hiç veri yok. Bu, verilerinizin kaybolduğu anlamına gelebilir.</div>';
+                return;
+            }
+
+            results.innerHTML = `<h3>✅ ${paycaKeys.length} adet kayıt bulundu:</h3>`;
+
+            paycaKeys.forEach(key => {
+                const value = localStorage.getItem(key);
+                const div = document.createElement('div');
+                div.className = 'storage-item';
+
+                let displayValue = value;
+                try {
+                    const parsed = JSON.parse(value);
+                    displayValue = JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    // Not JSON, display as is
+                }
+
+                div.innerHTML = `
+                    <div class="key">🔑 ${key}</div>
+                    <div class="value">${displayValue || '<span class="empty">Boş</span>'}</div>
+                `;
+                results.appendChild(div);
+            });
+        }
+
+        function exportData() {
+            const data = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    data[key] = localStorage.getItem(key);
+                }
+            }
+
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `payca-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert('✅ Veriler indirildi! Bu dosyayı güvenli bir yerde saklayın.');
+        }
+
+        // Load on page load
+        window.onload = loadStorage;
+    </script>
+</body>
+</html>

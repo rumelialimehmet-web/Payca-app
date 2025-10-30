@@ -5,6 +5,7 @@ import { OnboardingModal } from './src/components/OnboardingModal';
 import StitchHomePage from './src/components/StitchHomePage';
 import StitchExpenseForm from './src/components/StitchExpenseForm';
 import { auth } from './src/lib/supabase';
+import './src/utils/data-recovery'; // Load debug tools
 
 // Settlement Item Type
 interface Settlement {

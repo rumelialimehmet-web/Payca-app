@@ -45,6 +45,7 @@ export function RecurringExpenses({ group, currentUser, onClose }: RecurringExpe
     const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [recoverableData, setRecoverableData] = useState<{key: string, data: RecurringExpense[]}[]>([]);
 
     const [formData, setFormData] = useState({
         description: '',
@@ -59,17 +60,63 @@ export function RecurringExpenses({ group, currentUser, onClose }: RecurringExpe
     // Load recurring expenses from localStorage
     useEffect(() => {
         const storageKey = `payca-recurring-${group.id}`;
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-            setRecurringExpenses(JSON.parse(stored));
+        console.log(`[RecurringExpenses] Loading data for group ${group.id}, key: ${storageKey}`);
+
+        try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                console.log(`[RecurringExpenses] Loaded ${parsed.length} expenses:`, parsed);
+                setRecurringExpenses(parsed);
+            } else {
+                console.warn(`[RecurringExpenses] No data found for key: ${storageKey}`);
+
+                // Try to find data with different group IDs (data recovery)
+                const allKeys = Object.keys(localStorage);
+                const recurringKeys = allKeys.filter(k => k.startsWith('payca-recurring-') && k !== storageKey);
+
+                if (recurringKeys.length > 0) {
+                    console.log(`[RecurringExpenses] Found ${recurringKeys.length} other recurring expense keys:`, recurringKeys);
+
+                    // Load recoverable data
+                    const recoverable: {key: string, data: RecurringExpense[]}[] = [];
+                    recurringKeys.forEach(key => {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key) || '[]');
+                            if (data.length > 0) {
+                                recoverable.push({ key, data });
+                            }
+                        } catch (e) {
+                            console.error(`Error parsing ${key}:`, e);
+                        }
+                    });
+
+                    setRecoverableData(recoverable);
+                    console.log(`[RecurringExpenses] Found ${recoverable.length} recoverable data sources`);
+                }
+
+                setRecurringExpenses([]);
+            }
+        } catch (error) {
+            console.error('[RecurringExpenses] Error loading data:', error);
+            alert('Tekrarlayan harcama verileri yüklenirken bir hata oluştu. Lütfen sayfayı yenileyin.');
+            setRecurringExpenses([]);
         }
     }, [group.id]);
 
     // Save to localStorage
     const saveRecurringExpenses = (expenses: RecurringExpense[]) => {
         const storageKey = `payca-recurring-${group.id}`;
-        localStorage.setItem(storageKey, JSON.stringify(expenses));
-        setRecurringExpenses(expenses);
+        console.log(`[RecurringExpenses] Saving ${expenses.length} expenses to ${storageKey}`);
+
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(expenses));
+            setRecurringExpenses(expenses);
+            console.log(`[RecurringExpenses] Data saved successfully`);
+        } catch (error) {
+            console.error('[RecurringExpenses] Error saving data:', error);
+            alert('Veriler kaydedilirken bir hata oluştu. LocalStorage dolu olabilir.');
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -155,6 +202,19 @@ export function RecurringExpenses({ group, currentUser, onClose }: RecurringExpe
         saveRecurringExpenses(updated);
     };
 
+    const handleRecoverData = (sourceKey: string, data: RecurringExpense[]) => {
+        if (confirm(`${data.length} tekrarlayan harcamayı bu gruba aktarmak istediğinizden emin misiniz?`)) {
+            // Update group IDs to current group
+            const updatedData = data.map(exp => ({
+                ...exp,
+                groupId: group.id
+            }));
+            saveRecurringExpenses(updatedData);
+            setRecoverableData([]); // Clear recovery options
+            alert('✅ Veriler başarıyla kurtarıldı!');
+        }
+    };
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
@@ -163,6 +223,48 @@ export function RecurringExpenses({ group, currentUser, onClose }: RecurringExpe
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>
                     Kira, fatura gibi düzenli ödemelerinizi otomatik olarak ekleyin
                 </p>
+
+                {/* Data Recovery Section */}
+                {recoverableData.length > 0 && recurringExpenses.length === 0 && (
+                    <div style={{
+                        background: '#fef3c7',
+                        border: '2px solid #f59e0b',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        marginBottom: '20px'
+                    }}>
+                        <h3 style={{ color: '#92400e', marginBottom: '12px' }}>
+                            ⚠️ Veri Kurtarma Mevcut
+                        </h3>
+                        <p style={{ color: '#78350f', marginBottom: '12px', fontSize: '0.9rem' }}>
+                            Bu grup için kayıtlı veri bulunamadı, ancak başka grup verilerinde {recoverableData.reduce((sum, r) => sum + r.data.length, 0)} tekrarlayan harcama bulundu.
+                        </p>
+                        {recoverableData.map((recovery, idx) => (
+                            <div key={idx} style={{
+                                background: 'white',
+                                padding: '12px',
+                                borderRadius: '6px',
+                                marginBottom: '8px',
+                                border: '1px solid #fbbf24'
+                            }}>
+                                <p style={{ fontSize: '0.85rem', color: '#78350f', marginBottom: '8px' }}>
+                                    <strong>Kaynak:</strong> {recovery.key} ({recovery.data.length} kayıt)
+                                </p>
+                                <button
+                                    className="cta-button"
+                                    onClick={() => handleRecoverData(recovery.key, recovery.data)}
+                                    style={{
+                                        fontSize: '0.85rem',
+                                        padding: '8px 16px',
+                                        background: '#059669'
+                                    }}
+                                >
+                                    🔄 Bu Verileri Kurtar
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {!showForm && (
                     <button
