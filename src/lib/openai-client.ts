@@ -32,7 +32,7 @@ export async function scanReceipt(imageData: string): Promise<{
     };
     error?: string;
 }> {
-    if (!EDGE_FUNCTION_URL) {
+    if (!EDGE_FUNCTION_URL || !supabase) {
         return {
             success: false,
             error: 'AI özelliği yapılandırılmamış. Lütfen yöneticinizle iletişime geçin.',
@@ -102,7 +102,7 @@ export async function getFinancialAdvice(
     groups: any[],
     userId: string
 ): Promise<{ success: boolean; advice?: string; error?: string }> {
-    if (!EDGE_FUNCTION_URL) {
+    if (!EDGE_FUNCTION_URL || !supabase) {
         return {
             success: false,
             error: 'AI özelliği yapılandırılmamış.',

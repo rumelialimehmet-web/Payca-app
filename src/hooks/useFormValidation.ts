@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ValidationResult } from '../lib/validation';
 
 interface FieldState {
@@ -49,8 +49,8 @@ export function useFormValidation<T extends Record<string, any>>(
      * Validate a single field
      */
     const validateField = useCallback((fieldName: keyof T, value: any): string | null => {
-        const validator = validators[fieldName];
-        if (!validator) return null;
+        const validator = (validators as any)[fieldName];
+        if (!validator || typeof validator !== 'function') return null;
 
         const result = validator(value);
         return result.isValid ? null : (result.error || 'Geçersiz değer');
