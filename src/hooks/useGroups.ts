@@ -122,7 +122,9 @@ export function useGroup(groupId: string) {
         setLoading(true);
         const { data, error } = await db.groups.get(groupId);
         if (error) throw error;
-        setGroup(data as Group);
+        if (data) {
+          setGroup(data as Group);
+        }
       } catch (err) {
         setError(err);
         console.error('Error fetching group:', err);
@@ -139,7 +141,9 @@ export function useGroup(groupId: string) {
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [groupId]);
 

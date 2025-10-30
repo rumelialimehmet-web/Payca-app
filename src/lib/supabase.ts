@@ -115,6 +115,9 @@ export const db = {
   // Profile operations
   profiles: {
     get: async (userId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -124,8 +127,11 @@ export const db = {
     },
 
     update: async (userId: string, updates: Partial<Database['public']['Tables']['profiles']['Update']>) => {
-      const { data, error } = await supabase
-        .from('profiles')
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
+      const { data, error } = await (supabase
+        .from('profiles') as any)
         .update(updates)
         .eq('id', userId)
         .select()
@@ -137,6 +143,9 @@ export const db = {
   // Group operations
   groups: {
     list: async () => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('groups')
         .select(`
@@ -157,6 +166,9 @@ export const db = {
     },
 
     get: async (groupId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('groups')
         .select(`
@@ -178,17 +190,23 @@ export const db = {
     },
 
     create: async (group: Database['public']['Tables']['groups']['Insert']) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('groups')
-        .insert(group)
+        .insert(group as any)
         .select()
         .single();
       return { data, error };
     },
 
     update: async (groupId: string, updates: Database['public']['Tables']['groups']['Update']) => {
-      const { data, error } = await supabase
-        .from('groups')
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
+      const { data, error } = await (supabase
+        .from('groups') as any)
         .update(updates)
         .eq('id', groupId)
         .select()
@@ -197,6 +215,9 @@ export const db = {
     },
 
     delete: async (groupId: string) => {
+      if (!supabase) {
+        return { error: new Error('Supabase not configured') };
+      }
       const { error } = await supabase
         .from('groups')
         .delete()
@@ -208,15 +229,21 @@ export const db = {
   // Group members operations
   groupMembers: {
     add: async (groupId: string, userId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('group_members')
-        .insert({ group_id: groupId, user_id: userId })
+        .insert({ group_id: groupId, user_id: userId } as any)
         .select()
         .single();
       return { data, error };
     },
 
     remove: async (groupId: string, userId: string) => {
+      if (!supabase) {
+        return { error: new Error('Supabase not configured') };
+      }
       const { error } = await supabase
         .from('group_members')
         .delete()
@@ -229,6 +256,9 @@ export const db = {
   // Expense operations
   expenses: {
     list: async (groupId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('expenses')
         .select(`
@@ -262,10 +292,13 @@ export const db = {
       expense: Database['public']['Tables']['expenses']['Insert'],
       splits: Array<{ user_id: string; amount: number }>
     ) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       // Create expense
       const { data: expenseData, error: expenseError } = await supabase
         .from('expenses')
-        .insert(expense)
+        .insert(expense as any)
         .select()
         .single();
 
@@ -275,14 +308,14 @@ export const db = {
 
       // Create splits
       const splitsWithExpenseId = splits.map(split => ({
-        expense_id: expenseData.id,
+        expense_id: (expenseData as any).id,
         user_id: split.user_id,
         amount: split.amount,
       }));
 
       const { error: splitsError } = await supabase
         .from('expense_splits')
-        .insert(splitsWithExpenseId);
+        .insert(splitsWithExpenseId as any);
 
       if (splitsError) {
         return { data: null, error: splitsError };
@@ -292,6 +325,9 @@ export const db = {
     },
 
     delete: async (expenseId: string) => {
+      if (!supabase) {
+        return { error: new Error('Supabase not configured') };
+      }
       const { error } = await supabase
         .from('expenses')
         .delete()
@@ -303,6 +339,9 @@ export const db = {
   // Settlement operations
   settlements: {
     list: async (groupId: string) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('settlements')
         .select(`
@@ -326,17 +365,23 @@ export const db = {
     },
 
     create: async (settlement: Database['public']['Tables']['settlements']['Insert']) => {
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
       const { data, error } = await supabase
         .from('settlements')
-        .insert(settlement)
+        .insert(settlement as any)
         .select()
         .single();
       return { data, error };
     },
 
     markAsSettled: async (settlementId: string) => {
-      const { data, error } = await supabase
-        .from('settlements')
+      if (!supabase) {
+        return { data: null, error: new Error('Supabase not configured') };
+      }
+      const { data, error } = await (supabase
+        .from('settlements') as any)
         .update({ settled: true, settled_at: new Date().toISOString() })
         .eq('id', settlementId)
         .select()
@@ -429,6 +474,9 @@ export const storage = {
 export const subscriptions = {
   // Subscribe to group changes
   subscribeToGroup: (groupId: string, callback: (payload: any) => void) => {
+    if (!supabase) {
+      return null;
+    }
     return supabase
       .channel(`group:${groupId}`)
       .on(
@@ -446,6 +494,9 @@ export const subscriptions = {
 
   // Subscribe to group members changes
   subscribeToGroupMembers: (groupId: string, callback: (payload: any) => void) => {
+    if (!supabase) {
+      return null;
+    }
     return supabase
       .channel(`group-members:${groupId}`)
       .on(

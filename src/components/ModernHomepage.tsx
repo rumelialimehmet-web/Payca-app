@@ -95,61 +95,38 @@ export function ModernHomepage({
   };
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
       {/* Main Content */}
-      <main className="max-w-[480px] mx-auto px-5">
-        {/* Header Greeting */}
-        <h1 className="text-[#111827] dark:text-gray-100 text-2xl font-semibold pt-8 pb-4">
-          Merhaba, {user.name.split(' ')[0]} 👋
-        </h1>
+      <main className="max-w-[480px] mx-auto px-4">
+        {/* Simple Header */}
+        <div className="pt-6 pb-4">
+          <h1 className="text-gray-900 dark:text-white text-2xl font-bold">
+            Gruplar
+          </h1>
+        </div>
 
-        {/* Balance Overview Card */}
+        {/* Balance Overview Card - Simpler */}
         <BalanceCard
           youOwe={totalOwing}
           owedToYou={totalOwed}
           groupCount={groups.length}
         />
 
-        {/* Quick Actions */}
-        <div className="py-8">
-          <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <button
-              onClick={onAddExpense}
-              className="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary pl-4 pr-4 transition-transform hover:scale-105 active:scale-95"
-            >
-              <span className="material-symbols-outlined text-white text-lg">add</span>
-              <p className="text-white text-sm font-medium">Harcama Ekle</p>
-            </button>
-
-            <button
-              onClick={onCreateGroup}
-              className="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-4 pr-4 transition-transform hover:scale-105 active:scale-95"
-            >
-              <p className="text-[#111827] dark:text-gray-200 text-sm font-medium">+ Yeni Grup</p>
-            </button>
-
-            {onShowAllGroups && (
-              <button
-                onClick={onShowAllGroups}
-                className="flex h-10 shrink-0 items-center justify-center gap-x-2 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-4 pr-4 transition-transform hover:scale-105 active:scale-95"
-              >
-                <p className="text-[#111827] dark:text-gray-200 text-sm font-medium">Tüm Bakiyeler</p>
-              </button>
-            )}
-          </div>
+        {/* Single Primary Action */}
+        <div className="py-4">
+          <button
+            onClick={onCreateGroup}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-xl bg-primary text-white font-semibold transition-all hover:bg-primary/90 active:scale-[0.98]"
+          >
+            <span className="material-symbols-outlined text-xl">add</span>
+            Yeni Grup Oluştur
+          </button>
         </div>
 
         {/* Groups Section Header */}
-        <div className="flex justify-between items-center pb-4">
-          <h2 className="text-[#111827] dark:text-gray-100 text-lg font-semibold">Aktif Gruplar</h2>
-          {onShowAllGroups && (
-            <button
-              onClick={onShowAllGroups}
-              className="text-primary text-sm font-medium hover:underline"
-            >
-              Tümü &gt;
-            </button>
-          )}
+        <div className="flex justify-between items-center pb-3 pt-2">
+          <h2 className="text-gray-900 dark:text-white text-base font-semibold">Tüm Gruplar</h2>
+          <span className="text-gray-500 text-sm">{groups.length}</span>
         </div>
 
         {/* Group Cards List */}
@@ -191,66 +168,30 @@ export function ModernHomepage({
             )}
           </div>
         ) : (
-          // Empty State - Modern Onboarding Design (Variant 3)
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            {/* Illustration */}
-            <div className="w-[280px] h-[240px] mb-8 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-pink-500/10 flex items-center justify-center relative overflow-hidden">
-              {/* Decorative Background Elements */}
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent"></div>
-              <div className="absolute top-1/4 left-1/4 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
-              <div className="absolute bottom-1/4 right-1/4 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl"></div>
-
-              {/* Icon Illustration */}
-              <div className="relative z-10 flex flex-col items-center gap-4">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary to-purple-600 flex items-center justify-center shadow-lg">
-                  <span className="material-symbols-outlined text-white text-[40px]">groups</span>
-                </div>
-                <div className="flex gap-2">
-                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
-                    <span className="material-symbols-outlined text-primary text-[24px]">account_balance_wallet</span>
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
-                    <span className="material-symbols-outlined text-primary text-[24px]">receipt_long</span>
-                  </div>
-                  <div className="w-12 h-12 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center shadow-md">
-                    <span className="material-symbols-outlined text-primary text-[24px]">trending_up</span>
-                  </div>
-                </div>
-              </div>
+          // Simple Empty State
+          <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+            {/* Simple Icon */}
+            <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-6">
+              <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-5xl">groups</span>
             </div>
 
             {/* Title */}
-            <h3 className="text-[28px] font-bold text-[#1F2937] dark:text-gray-100 mb-3 leading-tight">
-              Henüz Hiç Grubun Yok
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Henüz grup yok
             </h3>
 
             {/* Description */}
-            <p className="text-[16px] text-[#6B7280] dark:text-gray-400 mb-8 max-w-[320px] leading-relaxed">
-              Arkadaşlarınla harcamalarını paylaş, kolayca hesaplaşın ve her şeyi tek yerden takip edin.
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-[280px]">
+              İlk grubunu oluştur ve harcamalarını paylaşmaya başla
             </p>
 
-            {/* Primary CTA Button */}
+            {/* Simple CTA */}
             <button
               onClick={onCreateGroup}
-              className="w-full max-w-[320px] flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-primary to-purple-600 text-white rounded-2xl font-semibold text-[16px] transition-all duration-200 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] shadow-md"
-              style={{
-                boxShadow: '0 4px 14px 0 rgba(83, 72, 234, 0.4)'
-              }}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-semibold transition-all hover:bg-primary/90 active:scale-[0.98]"
             >
-              <span className="material-symbols-outlined text-[24px]">add_circle</span>
-              İlk Grubunu Oluştur
-            </button>
-
-            {/* Secondary Link */}
-            <button
-              onClick={() => {
-                // Could open a tutorial or help modal
-                console.log('Nasıl çalışır clicked');
-              }}
-              className="mt-6 flex items-center gap-1 text-primary text-[14px] font-medium hover:underline transition-all"
-            >
-              Nasıl Çalışır?
-              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+              <span className="material-symbols-outlined text-xl">add</span>
+              Grup Oluştur
             </button>
           </div>
         )}

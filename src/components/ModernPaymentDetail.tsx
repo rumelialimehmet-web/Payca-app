@@ -44,7 +44,7 @@ const ModernPaymentDetail: React.FC<PaymentDetailProps> = ({
     return badges[payment.status];
   };
 
-  const paymentMethods = [
+  const paymentMethods: Array<{ id: 'cash' | 'bank' | 'paypal' | 'crypto'; name: string; icon: string }> = [
     { id: 'cash', name: 'Nakit', icon: 'payments' },
     { id: 'bank', name: 'Banka Transferi', icon: 'account_balance' },
     { id: 'paypal', name: 'PayPal', icon: 'credit_card' },

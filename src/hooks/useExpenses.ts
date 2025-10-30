@@ -54,7 +54,9 @@ export function useExpenses(groupId: string) {
     });
 
     return () => {
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, [groupId]);
 

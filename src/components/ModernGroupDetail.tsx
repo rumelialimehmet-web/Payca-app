@@ -142,75 +142,72 @@ export function ModernGroupDetail({
   ];
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark pb-24">
-      {/* Gradient Header */}
-      <div className="relative h-[240px] w-full overflow-hidden bg-gradient-to-br from-indigo-400 to-primary p-4">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative z-10 flex h-full flex-col">
-          {/* Header Buttons */}
-          <div className="flex items-center h-12 justify-between">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-24">
+      {/* Simple Header */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="max-w-[480px] mx-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-3">
             <button
               onClick={onBack}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-transform hover:scale-105 active:scale-95"
+              className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              <span className="material-symbols-outlined">arrow_back</span>
+              <span className="material-symbols-outlined text-gray-700 dark:text-gray-300">arrow_back</span>
             </button>
             {onSettings && (
               <button
                 onClick={onSettings}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-transform hover:scale-105 active:scale-95"
+                className="flex items-center justify-center w-9 h-9 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
               >
-                <span className="material-symbols-outlined">settings</span>
+                <span className="material-symbols-outlined text-gray-700 dark:text-gray-300">settings</span>
               </button>
             )}
           </div>
 
-          {/* Group Info */}
-          <div className="flex flex-1 flex-col items-start justify-end pb-12">
-            <p className="text-[80px] leading-none -ml-2">{getGroupIcon()}</p>
-            <p className="text-white tracking-tight text-[28px] font-bold leading-tight">
+          {/* Group Name */}
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-3xl">{getGroupIcon()}</span>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
               {group.name}
-            </p>
-            <p className="text-white/80 text-sm font-normal leading-normal">
-              {group.members?.length || 0} Üye
-            </p>
+            </h1>
           </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {group.members?.length || 0} üye
+          </p>
         </div>
       </div>
 
-      {/* Balance Card (Glassmorphism) */}
-      <div className="relative z-20 -mt-16 px-4 max-w-[480px] mx-auto">
-        <div className="w-full rounded-2xl border border-white/20 bg-white/70 p-4 shadow-lg backdrop-blur-lg dark:border-white/10 dark:bg-slate-800/70">
-          <div className="flex flex-col items-stretch justify-center gap-1">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-              Senin Bakiyen
-            </p>
-            <p className={`text-[40px] font-bold leading-tight tracking-tighter ${
-              userBalance >= 0 ? 'text-green-500' : 'text-red-500'
-            }`}>
-              {userBalance >= 0 ? '+' : ''}{userBalance.toFixed(0)}₺
-            </p>
-            <div className="flex items-end justify-between gap-3">
-              <p className="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal">
+      {/* Simple Balance Card */}
+      <div className="max-w-[480px] mx-auto px-4 py-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                Senin bakiyen
+              </p>
+              <p className={`text-3xl font-bold ${
+                userBalance >= 0 ? 'text-green-500' : 'text-red-500'
+              }`}>
+                {userBalance >= 0 ? '+' : ''}{userBalance.toFixed(0)}₺
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {userBalance >= 0 ? 'Sana borçlular' : 'Sen borçlusun'}
               </p>
-              {userBalance > 0 && (
-                <button className="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-4 bg-amber-500 text-white text-sm font-bold leading-normal shadow-md transition-transform hover:scale-105 active:scale-95">
-                  <span className="truncate">Tahsil Et</span>
-                </button>
-              )}
             </div>
+            {userBalance > 0 && (
+              <button className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:bg-primary/90 transition-colors">
+                Tahsil Et
+              </button>
+            )}
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="max-w-[480px] mx-auto pt-4">
+      <div className="max-w-[480px] mx-auto px-4 pt-2">
         <Tabs
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          sticky
         />
       </div>
 
@@ -221,13 +218,13 @@ export function ModernGroupDetail({
             {expensesByDate.length > 0 ? (
               expensesByDate.map(({ date, expenses }) => (
                 <div key={date}>
-                  {/* Sticky Date Header */}
-                  <div className="sticky top-[53px] z-10 border-b border-slate-200 bg-slate-50/95 px-4 py-2 dark:border-slate-700 dark:bg-slate-800/95">
-                    <p className="text-sm font-bold text-slate-600 dark:text-slate-300">{date}</p>
+                  {/* Simple Date Header */}
+                  <div className="px-4 py-3 bg-gray-100 dark:bg-gray-800">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{date}</p>
                   </div>
 
                   {/* Expenses for this date */}
-                  <div className="px-4 space-y-4 pt-4">
+                  <div className="px-4 space-y-3 py-3">
                     {expenses.map((expense: any) => {
                       const userPaid = expense.paidBy === currentUser.id;
                       let userShare = 0;
@@ -263,21 +260,23 @@ export function ModernGroupDetail({
                 </div>
               ))
             ) : (
-              // Empty State
-              <div className="flex flex-col items-center justify-center gap-4 px-8 py-16 text-center">
-                <div className="text-6xl">🧾</div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-                  Henüz Harcama Yok!
+              // Simple Empty State
+              <div className="flex flex-col items-center justify-center px-8 py-16 text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+                  <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-4xl">receipt_long</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Henüz harcama yok
                 </h3>
-                <p className="text-slate-500 dark:text-slate-400">
-                  İlk harcamayı ekleyen sen ol. Burası çok sessiz.
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  İlk harcamayı ekle
                 </p>
                 <button
                   onClick={onAddExpense}
-                  className="mt-2 flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-bold transition-transform hover:scale-105 active:scale-95"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg font-semibold text-sm hover:bg-primary/90 transition-colors"
                 >
-                  <span className="material-symbols-outlined">add</span>
-                  İlk Harcamayı Ekle
+                  <span className="material-symbols-outlined text-lg">add</span>
+                  Harcama Ekle
                 </button>
               </div>
             )}
@@ -320,25 +319,19 @@ export function ModernGroupDetail({
         {activeTab === 'statistics' && (
           <div className="px-4 py-6">
             <div className="text-center py-16">
-              <div className="text-6xl mb-4">📊</div>
-              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-                İstatistikler Yakında!
+              <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4 mx-auto">
+                <span className="material-symbols-outlined text-gray-400 dark:text-gray-500 text-4xl">bar_chart</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                İstatistikler yakında
               </h3>
-              <p className="text-slate-500 dark:text-slate-400">
-                Harcama istatistikleri ve grafikler hazırlanıyor.
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Harcama istatistikleri hazırlanıyor
               </p>
             </div>
           </div>
         )}
       </div>
-
-      {/* Floating Action Button */}
-      <button
-        onClick={onAddExpense}
-        className="fixed bottom-24 right-6 z-30 flex size-16 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-primary text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
-      >
-        <span className="material-symbols-outlined text-4xl">add</span>
-      </button>
 
       {/* Bottom Navigation */}
       <BottomNav

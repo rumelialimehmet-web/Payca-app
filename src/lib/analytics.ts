@@ -52,7 +52,7 @@ export type AnalyticsEvent =
   | 'premium_purchased';
 
 export interface AnalyticsEventData {
-  [key: string]: string | number | boolean | null | undefined;
+  [key: string]: string | number | boolean | null;
 }
 
 /**
@@ -142,7 +142,7 @@ export const analytics = {
     trackEvent('expense_added', { amount, category, method }),
 
   receiptScanned: (success: boolean, confidence?: number) =>
-    trackEvent('receipt_scanned', { success, confidence }),
+    trackEvent('receipt_scanned', confidence !== undefined ? { success, confidence } : { success }),
 
   // AI Features
   aiAdvisorOpened: () =>
