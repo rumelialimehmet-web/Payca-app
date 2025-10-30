@@ -1,85 +1,221 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { User } from '@supabase/supabase-js';
+import { db } from '../lib/supabase';
 
 // Group interface
 interface Group {
-  id: number;
+  id: string;
   name: string;
-  total: number;
-  status: 'debt' | 'credit' | 'settled';
-  amount: number;
-  location: string;
-  date: string;
-  lastUpdate: string;
-  members: string[];
+  emoji: string;
+  total_amount: number;
+  user_balance: number;
+  user_debt_status: 'debt' | 'credit' | 'settled';
+  member_count: number;
+  location?: string;
+  created_at: string;
+  last_update: string;
+  members: Array<{
+    id: string;
+    avatar_url?: string;
+  }>;
 }
 
-export default function StitchHomePage() {
-  const [groups, setGroups] = useState<Group[]>([
-    {
-      id: 1,
-      name: "🏖️ Tatil Gezisi",
-      total: 1250,
-      status: "debt",
-      amount: 50,
-      location: "İstanbul, TR",
-      date: "15.10.2023",
-      lastUpdate: "2s önce",
-      members: [
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuBpf7skRHjWiYb5qsWiD54-5aSwgTXS3KB-_A-85rzW_bG58-kgvm39bpAGdWl5moyWqq4SbrgryYF5y88DN_W2Qi8j4RoYh3u3mCrLNJUV51w2d8jMXpZhhBpD5aAl6LjtuKrez9AdVIv_PpvSA2Eas3SNpqm3Jf1LJkKwObBz8uZqtSu1nyBHQamMgC0ZZaEg93JVmL6kbJeMMArClub4dixZgJfq_bQEFXikdpOx3sPPfQI4lcF7gmqlDt9hBmY3ljV-9HUSamJQ",
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuA59tSNSA3RVlLSqDi-5YVnISMotkljGyYEmGSetfnRIwQlU9fcU0y1J7Q3S8cV32gvJ9f8PG3QxUMhIWtTshjKwUOWBbZHSEcnL9I6ZlMef5plqavwyGcR6-L3eLoWAPYkJND9qr4fEoJemg5lU73LY4m9bviyF9FaRIOFBQOvx3k-8kmsVww0wN-iUuM4-omIkxrFhK_lN6Vw7YqpUfSb5gLWuLatKVBL3BjBPITOoiRBcdFP2agFoZVoxUoVhC5OtEjr6uUwIx4M",
-      ],
-    },
-    {
-      id: 2,
-      name: "🍕 Pizza Akşamı",
-      total: 380,
-      status: "credit",
-      amount: 120,
-      location: "Ankara, TR",
-      date: "13.10.2023",
-      lastUpdate: "1g önce",
-      members: [
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuCbihSvs3AR_mNClqAmU0DGu1Xh32VIOUaF1Wj4cK6Nu12koH3tjOwUcpVSq7irLCRfj9R0znF6LSUKr7HTjZQjl1__mIGw51oaiuUhklhJUceCEpjc3XQBGLUQuUscxTJ0oZeFAyA5cEQxkCLiNfTJ1yd4Ug-whmWP8EPEVu6jeo1uAkd4FjuDgLDexNmx2tWfFUsuTAncJkI1uNt1guwfsUoJkNt7OInxx_S2hq-sB-7uHwZ4N-IW1ECu8vD9Pj4MwEPyRJBffEsG",
-      ],
-    },
-    {
-      id: 3,
-      name: "🏠 Ev Kirası",
-      total: 4500,
-      status: "settled",
-      amount: 0,
-      location: "İzmir, TR",
-      date: "10.10.2023",
-      lastUpdate: "5g önce",
-      members: [],
-    },
-  ]);
+interface StitchHomePageProps {
+  user: User;
+  onLogout: () => void;
+}
+
+export default function StitchHomePage({ user, onLogout }: StitchHomePageProps) {
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [totalCredit, setTotalCredit] = useState(0);
+  const [totalDebt, setTotalDebt] = useState(0);
+
+  useEffect(() => {
+    loadGroups();
+  }, [user.id]);
+
+  const loadGroups = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await db.groups.list();
+
+      if (error) {
+        console.error('Gruplar yüklenirken hata:', error);
+        // Fallback to mock data
+        loadMockGroups();
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // Transform Supabase data to Group interface
+        const transformedGroups = data.map((group: any) => ({
+          id: group.id,
+          name: group.name || 'Grup',
+          emoji: group.emoji || '🎉',
+          total_amount: group.total_amount || 0,
+          user_balance: calculateUserBalance(group, user.id),
+          user_debt_status: calculateDebtStatus(group, user.id),
+          member_count: group.group_members?.length || 0,
+          location: group.location || '',
+          created_at: formatDate(group.created_at),
+          last_update: formatRelativeTime(group.updated_at || group.created_at),
+          members: group.group_members?.map((member: any) => ({
+            id: member.user_id,
+            avatar_url: member.profiles?.avatar_url
+          })) || []
+        }));
+
+        setGroups(transformedGroups);
+        calculateTotals(transformedGroups);
+      } else {
+        // No groups found, use mock data
+        loadMockGroups();
+      }
+    } catch (error) {
+      console.error('Gruplar yüklenirken hata:', error);
+      loadMockGroups();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMockGroups = () => {
+    const mockGroups: Group[] = [
+      {
+        id: '1',
+        name: 'Tatil Gezisi',
+        emoji: '🏖️',
+        total_amount: 1250,
+        user_balance: -50,
+        user_debt_status: 'debt',
+        member_count: 3,
+        location: 'İstanbul, TR',
+        created_at: '15.10.2024',
+        last_update: '2s önce',
+        members: []
+      },
+      {
+        id: '2',
+        name: 'Pizza Akşamı',
+        emoji: '🍕',
+        total_amount: 380,
+        user_balance: 120,
+        user_debt_status: 'credit',
+        member_count: 2,
+        location: 'Ankara, TR',
+        created_at: '13.10.2024',
+        last_update: '1g önce',
+        members: []
+      }
+    ];
+    setGroups(mockGroups);
+    calculateTotals(mockGroups);
+  };
+
+  const calculateUserBalance = (group: any, userId: string): number => {
+    // TODO: Calculate actual balance from expenses
+    return 0;
+  };
+
+  const calculateDebtStatus = (group: any, userId: string): 'debt' | 'credit' | 'settled' => {
+    const balance = calculateUserBalance(group, userId);
+    if (balance < 0) return 'debt';
+    if (balance > 0) return 'credit';
+    return 'settled';
+  };
+
+  const calculateTotals = (groupsList: Group[]) => {
+    let credit = 0;
+    let debt = 0;
+
+    groupsList.forEach(group => {
+      if (group.user_debt_status === 'credit') {
+        credit += Math.abs(group.user_balance);
+      } else if (group.user_debt_status === 'debt') {
+        debt += Math.abs(group.user_balance);
+      }
+    });
+
+    setTotalCredit(credit);
+    setTotalDebt(debt);
+  };
+
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const formatRelativeTime = (dateString: string): string => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Az önce';
+    if (diffMins < 60) return `${diffMins}dk önce`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}s önce`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}g önce`;
+  };
+
+  const getUserDisplayName = (): string => {
+    if (user.user_metadata?.display_name) {
+      return user.user_metadata.display_name;
+    }
+    if (user.email) {
+      return user.email.split('@')[0];
+    }
+    return 'Kullanıcı';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+          <p className="text-gray-600 dark:text-gray-400">Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full max-w-md mx-auto min-h-screen bg-background-light dark:bg-background-dark shadow-2xl rounded-xl overflow-hidden flex flex-col font-display">
       {/* Main Scrollable Content */}
       <main className="flex-1 overflow-y-auto pb-24">
         <div className="px-5">
-          {/* Header Greeting */}
-          <h1 className="text-gray-900 dark:text-gray-100 text-2xl font-semibold pt-8 pb-4">
-            Merhaba, Ahmet 👋
-          </h1>
+          {/* Header Greeting with Logout */}
+          <div className="flex items-center justify-between pt-8 pb-4">
+            <h1 className="text-gray-900 dark:text-gray-100 text-2xl font-semibold">
+              Merhaba, {getUserDisplayName()} 👋
+            </h1>
+            <button
+              onClick={onLogout}
+              className="text-sm text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary transition px-3 py-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              Çıkış
+            </button>
+          </div>
 
           {/* Balance Overview Card */}
           <div className="bg-white dark:bg-gray-800 dark:border dark:border-gray-700 rounded-xl p-5 shadow-sm">
             <div className="flex justify-around items-center text-center">
               <div className="flex-1">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Alacaklısın</p>
-                <p className="text-green-500 text-2xl font-bold mt-1">+425₺</p>
+                <p className="text-green-500 text-2xl font-bold mt-1">+{totalCredit}₺</p>
               </div>
               <div className="w-px h-10 bg-gray-200 dark:bg-gray-700 mx-2"></div>
               <div className="flex-1">
                 <p className="text-sm text-gray-500 dark:text-gray-400">Borçlusun</p>
-                <p className="text-red-500 text-2xl font-bold mt-1">-150₺</p>
+                <p className="text-red-500 text-2xl font-bold mt-1">-{totalDebt}₺</p>
               </div>
             </div>
             <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
-              3 grup
+              {groups.length} grup
             </p>
           </div>
 
@@ -119,22 +255,36 @@ export default function StitchHomePage() {
                 <div className="flex items-start justify-between">
                   <div className="flex flex-col gap-1">
                     <p className="text-gray-900 dark:text-gray-100 text-base font-semibold">
-                      {group.name}
+                      {group.emoji} {group.name}
                     </p>
                     <p className="text-gray-500 dark:text-gray-400 text-sm">
-                      Toplam: {group.total}₺
+                      Toplam: {group.total_amount}₺
                     </p>
                   </div>
                   {group.members.length > 0 && (
                     <div className="flex -space-x-2">
-                      {group.members.map((avatar, idx) => (
-                        <img
-                          key={idx}
-                          className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-800"
-                          src={avatar}
-                          alt={`Member ${idx + 1}`}
-                        />
+                      {group.members.slice(0, 3).map((member, idx) => (
+                        member.avatar_url ? (
+                          <img
+                            key={member.id}
+                            className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-800"
+                            src={member.avatar_url}
+                            alt={`Member ${idx + 1}`}
+                          />
+                        ) : (
+                          <div
+                            key={member.id}
+                            className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-800 bg-primary/20 flex items-center justify-center text-xs"
+                          >
+                            👤
+                          </div>
+                        )
                       ))}
+                      {group.member_count > 3 && (
+                        <div className="inline-block h-6 w-6 rounded-full ring-2 ring-white dark:ring-gray-800 bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] text-gray-600 dark:text-gray-400">
+                          +{group.member_count - 3}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -142,37 +292,37 @@ export default function StitchHomePage() {
                 <div className="flex items-center justify-between">
                   <div
                     className={`flex items-center justify-center rounded-full h-7 px-3 ${
-                      group.status === "debt"
+                      group.user_debt_status === "debt"
                         ? "bg-red-100 dark:bg-red-500/20"
-                        : group.status === "credit"
+                        : group.user_debt_status === "credit"
                         ? "bg-green-100 dark:bg-green-500/20"
                         : "bg-gray-100 dark:bg-gray-700"
                     }`}
                   >
                     <span
                       className={`text-xs font-medium ${
-                        group.status === "debt"
+                        group.user_debt_status === "debt"
                           ? "text-red-600 dark:text-red-400"
-                          : group.status === "credit"
+                          : group.user_debt_status === "credit"
                           ? "text-green-600 dark:text-green-400"
                           : "text-gray-600 dark:text-gray-300"
                       }`}
                     >
-                      {group.status === "debt"
-                        ? `Borçlusun: ${group.amount}₺`
-                        : group.status === "credit"
-                        ? `Alacaklısın: ${group.amount}₺`
+                      {group.user_debt_status === "debt"
+                        ? `Borçlusun: ${Math.abs(group.user_balance)}₺`
+                        : group.user_debt_status === "credit"
+                        ? `Alacaklısın: ${group.user_balance}₺`
                         : "Ödeşildi"}
                     </span>
                   </div>
                   <p className="text-gray-400 dark:text-gray-500 text-xs">
-                    Son güncelleme: {group.lastUpdate}
+                    {group.last_update}
                   </p>
                 </div>
 
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-                  <span>{group.location}</span>
-                  <span>{group.date}</span>
+                  <span>{group.location || 'Konum belirtilmemiş'}</span>
+                  <span>{group.created_at}</span>
                 </div>
               </div>
             ))}
