@@ -6,6 +6,12 @@
 
 Modern, kullanıcı dostu grup harcama paylaşım ve takip uygulaması. Ev arkadaşları, tatil grupları ve etkinlikler için tasarlanmış Progressive Web App (PWA).
 
+## 🚀 **[CANLIYA ALMA REHBERİ →](./CANLIYA_ALMA_REHBERI.md)**
+
+**Uygulamanızı 10 dakikada canlıya alın!** Adım adım Türkçe rehber için [buraya tıklayın](./CANLIYA_ALMA_REHBERI.md).
+
+---
+
 ## ✨ Özellikler
 
 - 💰 **Grup Harcama Yönetimi**: Kolayca harcama ekleyin ve grubunuzla paylaşın
@@ -114,13 +120,25 @@ Payca-app/
 - Supabase Auth ile güvenli kimlik doğrulama
 - Environment variables ile API key yönetimi
 
-## 🌐 Deployment
+## 🌐 Deployment (Canlıya Alma)
 
-### Vercel
+### 🎯 Hızlı Deploy - 10 Dakikada!
+
+**Detaylı Türkçe rehber**: **[CANLIYA_ALMA_REHBERI.md](./CANLIYA_ALMA_REHBERI.md)** 👈
+
+Bu rehber şunları içerir:
+- ✅ Supabase kurulumu (ücretsiz)
+- ✅ Environment variables ayarlama
+- ✅ Vercel'e deploy (ücretsiz)
+- ✅ Production test ve doğrulama
+
+### Vercel (Önerilen)
 
 1. GitHub'a push edin
 2. [Vercel](https://vercel.com)'e import edin
-3. Environment variables ekleyin
+3. Environment variables ekleyin:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
 4. Deploy edin!
 
 ### Netlify
@@ -134,7 +152,7 @@ npx netlify deploy --prod
 
 Build klasörünü (`dist/`) herhangi bir static hosting servisine deploy edebilirsiniz.
 
-**Önemli**: Deployment sonrası Supabase'de **Site URL** ve **Redirect URLs** ayarlarını güncellemeyi unutmayın!
+**⚠️ Önemli**: Deployment sonrası Supabase'de **Site URL** ve **Redirect URLs** ayarlarını güncellemeyi unutmayın!
 
 ## 📚 Dokümantasyon
 
